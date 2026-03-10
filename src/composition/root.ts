@@ -39,7 +39,11 @@ export interface AppComposition {
 export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
 	const config = await new FileConfigLoader(cwd).load();
 	const runtimeRef = new RuntimeRef();
-	const logger = new ConsoleLogger(config.logging.level);
+	const logger = new ConsoleLogger(config.logging.level, {
+		getContext: () => runtimeRef.getContext(),
+		statusKey: "autoprompter-events",
+		mirrorToConsoleWhenNoUi: true,
+	});
 	const taskQueue = new InMemoryTaskQueue();
 	const vcs = new GitClient(cwd);
 	const fileHash = new Sha256FileHash();

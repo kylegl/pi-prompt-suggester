@@ -1,3 +1,4 @@
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { Logger } from "../../app/ports/logger.js";
 
 type Level = "debug" | "info" | "warn" | "error";
@@ -9,8 +10,28 @@ const LEVEL_ORDER: Record<Level, number> = {
 	error: 40,
 };
 
+function truncate(value: string, maxChars: number): string {
+	if (value.length <= maxChars) return value;
+	return `${value.slice(0, maxChars)}…`;
+}
+
+export interface ConsoleLoggerOptions {
+	getContext?: () => ExtensionContext | undefined;
+	statusKey?: string;
+	mirrorToConsoleWhenNoUi?: boolean;
+}
+
 export class ConsoleLogger implements Logger {
-	public constructor(private readonly level: Level = "info") {}
+	private readonly statusKey: string;
+	private readonly mirrorToConsoleWhenNoUi: boolean;
+
+	public constructor(
+		private readonly level: Level = "info",
+		private readonly options: ConsoleLoggerOptions = {},
+	) {
+		this.statusKey = options.statusKey ?? "autoprompter-log";
+		this.mirrorToConsoleWhenNoUi = options.mirrorToConsoleWhenNoUi ?? true;
+	}
 
 	public debug(message: string, meta?: Record<string, unknown>): void {
 		this.log("debug", message, meta);
@@ -31,7 +52,23 @@ export class ConsoleLogger implements Logger {
 	private log(level: Level, message: string, meta?: Record<string, unknown>): void {
 		if (LEVEL_ORDER[level] < LEVEL_ORDER[this.level]) return;
 		const payload = meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
-		const line = `[pi-autoprompter:${level}] ${message}${payload}`;
+		const line = truncate(`[autoprompter ${level}] ${message}${payload}`, 220);
+		const ctx = this.options.getContext?.();
+		if (ctx?.hasUI) {
+			const theme = ctx.ui.theme;
+			const colorized =
+				level === "error"
+					? theme.fg("error", line)
+					: level === "warn"
+						? theme.fg("warning", line)
+						: level === "debug"
+							? theme.fg("dim", line)
+							: theme.fg("muted", line);
+			ctx.ui.setStatus(this.statusKey, colorized);
+			return;
+		}
+
+		if (!this.mirrorToConsoleWhenNoUi) return;
 		if (level === "error") console.error(line);
 		else if (level === "warn") console.warn(line);
 		else console.log(line);
