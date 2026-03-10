@@ -4,6 +4,8 @@ import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 export interface UiContextLike {
 	getContext(): ExtensionContext | undefined;
 	getEpoch(): number;
+	getSuggestion(): string | undefined;
+	setSuggestion(text: string | undefined): void;
 	prefillOnlyWhenEditorEmpty: boolean;
 }
 
@@ -15,15 +17,21 @@ export class PiSuggestionSink implements SuggestionSink {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.hasUI) return;
 		const theme = ctx.ui.theme;
-		const editorText = ctx.ui.getEditorText().trim();
-		const canPrefill =
+		const editorText = ctx.ui.getEditorText();
+		const trimmedEditorText = editorText.trim();
+		const prefixCompatible = !editorText.includes("\n") && text.startsWith(editorText);
+		const canGhostInEditor =
 			ctx.isIdle() &&
 			!ctx.hasPendingMessages() &&
-			(!this.runtime.prefillOnlyWhenEditorEmpty || editorText.length === 0);
+			(this.runtime.prefillOnlyWhenEditorEmpty ? trimmedEditorText.length === 0 : trimmedEditorText.length === 0 || prefixCompatible);
 
-		ctx.ui.setStatus("autoprompter", theme.fg("accent", options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion"));
-		if (canPrefill) {
-			ctx.ui.setEditorText(text);
+		this.runtime.setSuggestion(text);
+		ctx.ui.setStatus(
+			"autoprompter",
+			theme.fg("accent", options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion"),
+		);
+
+		if (canGhostInEditor) {
 			ctx.ui.setWidget("autoprompter", undefined);
 			return;
 		}
@@ -33,7 +41,7 @@ export class PiSuggestionSink implements SuggestionSink {
 			[
 				`${theme.fg("accent", "Suggested next prompt")}`,
 				text,
-				theme.fg("dim", "(editor not empty, so suggestion was shown as a widget instead of overwriting text)"),
+				theme.fg("dim", "(typed text no longer matches the suggestion, so it is shown below the editor)"),
 			],
 			{ placement: "belowEditor" },
 		);
@@ -42,6 +50,7 @@ export class PiSuggestionSink implements SuggestionSink {
 	public async clearSuggestion(options?: { generationId?: number }): Promise<void> {
 		if (options?.generationId !== undefined && options.generationId !== this.runtime.getEpoch()) return;
 		const ctx = this.runtime.getContext();
+		this.runtime.setSuggestion(undefined);
 		if (!ctx?.hasUI) return;
 		ctx.ui.setWidget("autoprompter", undefined);
 		ctx.ui.setStatus("autoprompter", undefined);

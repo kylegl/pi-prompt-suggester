@@ -3,6 +3,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 export class RuntimeRef {
 	private currentContext: ExtensionContext | undefined;
 	private generationEpoch = 0;
+	private currentSuggestion: string | undefined;
 
 	public setContext(ctx: ExtensionContext): void {
 		this.currentContext = ctx;
@@ -19,5 +20,13 @@ export class RuntimeRef {
 
 	public getEpoch(): number {
 		return this.generationEpoch;
+	}
+
+	public setSuggestion(text: string | undefined): void {
+		this.currentSuggestion = text?.trim() || undefined;
+	}
+
+	public getSuggestion(): string | undefined {
+		return this.currentSuggestion;
 	}
 }

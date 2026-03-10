@@ -50,6 +50,8 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 	const suggestionSink = new PiSuggestionSink({
 		getContext: () => runtimeRef.getContext(),
 		getEpoch: () => runtimeRef.getEpoch(),
+		getSuggestion: () => runtimeRef.getSuggestion(),
+		setSuggestion: (text) => runtimeRef.setSuggestion(text),
 		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
 	});
 

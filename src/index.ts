@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, InputEvent } from "@mariozechner/pi-coding-agent";
 import { createAppComposition, type AppComposition } from "./composition/root.js";
 import { PiExtensionAdapter } from "./infra/pi/extension-adapter.js";
+import { GhostSuggestionEditor } from "./infra/pi/ghost-suggestion-editor.js";
 
 function renderStatus(seed: Awaited<ReturnType<AppComposition["stores"]["seedStore"]["load"]>>, state: Awaited<ReturnType<AppComposition["stores"]["stateStore"]["load"]>>): string {
 	const steeringSummary = {
@@ -42,6 +43,11 @@ export default function autoprompter(pi: ExtensionAPI) {
 		onSessionStart: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			composition.runtimeRef.bumpEpoch();
+			if (ctx.hasUI) {
+				ctx.ui.setEditorComponent((tui, theme, kb) =>
+					new GhostSuggestionEditor(tui, theme, kb, () => composition.runtimeRef.getSuggestion()),
+				);
+			}
 			await composition.orchestrators.sessionStart.handle();
 		},
 		onAgentEnd: async (turn, ctx) => {
@@ -89,6 +95,7 @@ export default function autoprompter(pi: ExtensionAPI) {
 				...state,
 				lastSuggestion: undefined,
 			});
+			composition.runtimeRef.setSuggestion(undefined);
 			ctx.ui.setWidget("autoprompter", undefined, { placement: "belowEditor" });
 			ctx.ui.setStatus("autoprompter", undefined);
 			ctx.ui.notify("autoprompter suggestion cleared", "info");
