@@ -1,3 +1,5 @@
+import path from "node:path";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutoprompterConfig } from "../config/types.js";
 import { FileConfigLoader } from "../config/loader.js";
 import { ConsoleLogger } from "../infra/logging/console-logger.js";
@@ -5,7 +7,6 @@ import { InMemoryTaskQueue } from "../infra/queue/in-memory-task-queue.js";
 import { GitClient } from "../infra/vcs/git-client.js";
 import { Sha256FileHash } from "../infra/hashing/sha256-file-hash.js";
 import { JsonSeedStore } from "../infra/storage/json-seed-store.js";
-import { JsonStateStore } from "../infra/storage/json-state-store.js";
 import { PiModelClient } from "../infra/model/pi-model-client.js";
 import { SystemClock } from "../infra/clock/system-clock.js";
 import { StalenessChecker } from "../app/services/staleness-checker.js";
@@ -16,37 +17,47 @@ import { ReseedRunner } from "../app/orchestrators/reseed-runner.js";
 import { SessionStartOrchestrator } from "../app/orchestrators/session-start.js";
 import { TurnEndOrchestrator } from "../app/orchestrators/turn-end.js";
 import { UserSubmitOrchestrator } from "../app/orchestrators/user-submit.js";
+import { PiSuggestionSink } from "../infra/pi/ui-adapter.js";
+import { SessionStateStore } from "../infra/pi/session-state-store.js";
+import { RuntimeRef } from "../infra/pi/runtime-ref.js";
 
 export interface AppComposition {
 	config: AutoprompterConfig;
+	runtimeRef: RuntimeRef;
+	stores: {
+		seedStore: JsonSeedStore;
+		stateStore: SessionStateStore;
+	};
 	orchestrators: {
 		sessionStart: SessionStartOrchestrator;
-		turnEnd: TurnEndOrchestrator;
+		agentEnd: TurnEndOrchestrator;
 		userSubmit: UserSubmitOrchestrator;
 		reseedRunner: ReseedRunner;
 	};
 }
 
-/**
- * TODO:
- * - inject real storage paths from extension context
- * - inject concrete suggestion sink from pi UI context
- */
-export async function createAppComposition(): Promise<AppComposition> {
-	const config = await new FileConfigLoader().load();
-	const logger = new ConsoleLogger();
+export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
+	const config = await new FileConfigLoader(cwd).load();
+	const runtimeRef = new RuntimeRef();
+	const logger = new ConsoleLogger(config.logging.level);
 	const taskQueue = new InMemoryTaskQueue();
-	const vcs = new GitClient();
+	const vcs = new GitClient(cwd);
 	const fileHash = new Sha256FileHash();
-	const seedStore = new JsonSeedStore(".pi/autoprompter/seed.json");
-	const stateStore = new JsonStateStore(".pi/autoprompter/state.json");
-	const modelClient = new PiModelClient();
+	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "autoprompter", "seed.json"));
+	const stateStore = new SessionStateStore(pi, () => runtimeRef.getContext()?.sessionManager);
+	const modelClient = new PiModelClient(runtimeRef);
 	const clock = new SystemClock();
+	const suggestionSink = new PiSuggestionSink({
+		getContext: () => runtimeRef.getContext(),
+		getEpoch: () => runtimeRef.getEpoch(),
+		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
+	});
 
 	const stalenessChecker = new StalenessChecker({
 		config,
 		fileHash,
 		vcs,
+		cwd,
 	});
 
 	const promptContextBuilder = new PromptContextBuilder(config);
@@ -63,6 +74,9 @@ export async function createAppComposition(): Promise<AppComposition> {
 		modelClient,
 		taskQueue,
 		logger,
+		fileHash,
+		vcs,
+		cwd,
 	});
 
 	const sessionStart = new SessionStartOrchestrator({
@@ -70,21 +84,20 @@ export async function createAppComposition(): Promise<AppComposition> {
 		stateStore,
 		stalenessChecker,
 		reseedRunner,
+		suggestionSink,
 		logger,
+		checkForStaleness: config.reseed.checkOnSessionStart,
 	});
 
-	const turnEnd = new TurnEndOrchestrator({
+	const agentEnd = new TurnEndOrchestrator({
 		seedStore,
 		stateStore,
 		stalenessChecker,
 		reseedRunner,
 		suggestionEngine,
-		suggestionSink: {
-			async showSuggestion(_text: string) {
-				throw new Error("Not implemented: suggestion sink wiring");
-			},
-		},
+		suggestionSink,
 		logger,
+		checkForStaleness: config.reseed.checkAfterEveryTurn,
 	});
 
 	const userSubmit = new UserSubmitOrchestrator({
@@ -92,13 +105,20 @@ export async function createAppComposition(): Promise<AppComposition> {
 		steeringClassifier,
 		clock,
 		logger,
+		suggestionSink,
+		historyWindow: config.steering.historyWindow,
 	});
 
 	return {
 		config,
+		runtimeRef,
+		stores: {
+			seedStore,
+			stateStore,
+		},
 		orchestrators: {
 			sessionStart,
-			turnEnd,
+			agentEnd,
 			userSubmit,
 			reseedRunner,
 		},

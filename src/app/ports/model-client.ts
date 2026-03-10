@@ -1,17 +1,12 @@
-import type { SeedArtifact, ReseedTrigger } from "../../domain/seed.js";
-import type { TurnContext } from "../../domain/suggestion.js";
-import type { SteeringSlice } from "../../domain/steering.js";
+import type { SeedArtifact, SeedDraft, ReseedTrigger } from "../../domain/seed.js";
+import type { SuggestionPromptContext } from "../services/prompt-context-builder.js";
 
 export interface ModelClient {
 	generateSeed(input: {
 		reseedTrigger: ReseedTrigger;
 		repositoryContext: string;
 		previousSeed: SeedArtifact | null;
-	}): Promise<SeedArtifact>;
+	}): Promise<SeedDraft>;
 
-	generateSuggestion(input: {
-		turn: TurnContext;
-		seed: SeedArtifact | null;
-		steering: SteeringSlice;
-	}): Promise<string>;
+	generateSuggestion(context: SuggestionPromptContext): Promise<string>;
 }

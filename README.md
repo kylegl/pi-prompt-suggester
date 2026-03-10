@@ -1,30 +1,39 @@
 # pi-autoprompter
 
-A pi extension that suggests the user's likely next prompt after each assistant turn.
+A pi extension that suggests the user's likely next prompt after each assistant completion.
 
 ## Core idea
 
 Instead of naive autocomplete, `pi-autoprompter` uses a two-stage approach:
 
 1. **Seeding pass (meta-meta prompt, infrequent):**
-   - Explore repository intent (vision/docs/code signals)
+   - Explore repository intent from vision/docs/code signals
    - Produce a compact, reusable `intent seed`
-   - Recompute when important files change (hash-based invalidation)
+   - Recompute when important files or seed policy versions change
 
 2. **Suggestion pass (meta prompt, frequent):**
-   - Use recent conversation trajectory + latest assistant turn + `intent seed`
+   - Use recent conversation trajectory + latest assistant completion + `intent seed`
    - Generate a high-quality next-prompt suggestion
-   - Prefill editor / accept with key action (e.g. Tab)
+   - Safely prefill the editor when possible, otherwise show the suggestion as a widget
 
-## Status
+## Current implementation
 
-Architecture scaffold initialized (module boundaries + ports/adapters + config schema).
-Implementations are intentionally pending.
+Implemented end-to-end:
+- async, non-blocking seed generation and reseeding
+- seed persistence in `.pi/autoprompter/seed.json`
+- session/branch-aware steering state via pi custom session entries
+- `agent_end`-driven prompt suggestion generation
+- deterministic fast-path `continue` for error/aborted completions
+- suggestion display with guarded editor prefill
+- steering capture from the next real user input
+- `/autoprompter status`, `/autoprompter reseed`, `/autoprompter clear`
 
-See:
+## Key files
+
 - [`vision.md`](./vision.md)
 - [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/meta-prompts.md`](./docs/meta-prompts.md)
 - [`docs/implementation-plan.md`](./docs/implementation-plan.md)
 - [`docs/architecture-plan.md`](./docs/architecture-plan.md)
+- [`docs/architecture-decisions.md`](./docs/architecture-decisions.md)
 - [`config/autoprompter.config.example.json`](./config/autoprompter.config.example.json)

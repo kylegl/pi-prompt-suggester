@@ -3,29 +3,29 @@
 ## Phase 0: Foundation
 - [x] Repo scaffold
 - [x] Vision and architecture docs
-- [ ] Define `seed.json` schema
-- [ ] Define `state.json` schema (suggestion + steering + reseed state)
+- [x] Define `seed.json` schema
+- [x] Define session/branch-aware runtime state schema
 
 ## Phase 1: Async Seeding MVP
-- [ ] Background seeding runner (non-blocking)
-- [ ] Repo signal discovery for seeding
-- [ ] Persist seed with key-file hashes + source commit
-- [ ] Staleness check on `session_start`
-- [ ] `/autoprompter reseed` command (async)
+- [x] Background seeding runner (non-blocking)
+- [x] Repo signal discovery for seeding
+- [x] Persist seed with key-file hashes + source commit
+- [x] Staleness check on `session_start`
+- [x] `/autoprompter reseed` command (async)
 
 ## Phase 2: Turn-time Suggestion MVP
-- [ ] Hook `agent_end` turn processing
-- [ ] Deterministic fast-path: error/aborted -> `continue`
-- [ ] Prompt-generator meta prompt runner (plain text output)
-- [ ] Handle `[no suggestion]`
-- [ ] Prefill editor via `ctx.ui.setEditorText`
+- [x] Hook `agent_end` completion processing
+- [x] Deterministic fast-path: error/aborted -> `continue`
+- [x] Prompt-generator meta prompt runner (plain text output)
+- [x] Handle `[no suggestion]`
+- [x] Prefill editor via `ctx.ui.setEditorText` when safe
 
 ## Phase 3: Continuous Reseeding + Steering
-- [ ] Run staleness checker after every agent turn
-- [ ] Trigger async reseed with reason + changed files (+ optional git diff summary)
-- [ ] Capture suggestion vs actual user prompt
-- [ ] Classify `accepted_exact | accepted_edited | changed_course`
-- [ ] Feed recent accepted/changed examples into prompt generation
+- [x] Run staleness checker after every agent completion
+- [x] Trigger async reseed with reason + changed files (+ optional git diff summary)
+- [x] Capture suggestion vs actual user prompt
+- [x] Classify `accepted_exact | accepted_edited | changed_course`
+- [x] Feed recent accepted/changed examples into prompt generation
 
 ## Phase 4: Tuning Loop
 - [ ] Local replay harness
@@ -36,4 +36,4 @@
 ## Phase 5: UX Quality
 - [ ] Ghost suggestion rendering in custom editor
 - [ ] Tab accept behavior
-- [ ] Minimal visual indicators and controls
+- [x] Minimal visual indicators and controls

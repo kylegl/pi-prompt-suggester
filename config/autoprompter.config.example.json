@@ -1,7 +1,10 @@
 {
   "seed": {
-    "keyFileGlobs": ["README.md", "vision.md", "docs/**/*.md", "src/index.ts"],
-    "maxDiffChars": 3000
+    "keyFileGlobs": ["README.md", "vision.md", "docs/**/*.md", "src/index.ts", "package.json"],
+    "maxDiffChars": 3000,
+    "maxFiles": 24,
+    "maxFileChars": 5000,
+    "maxRepositoryContextChars": 32000
   },
   "reseed": {
     "enabled": true,
@@ -12,7 +15,13 @@
   "suggestion": {
     "noSuggestionToken": "[no suggestion]",
     "fastPathContinueOnError": true,
-    "maxAssistantTurnChars": 4000
+    "maxAssistantTurnChars": 4000,
+    "maxRecentUserPrompts": 6,
+    "maxRecentUserPromptChars": 400,
+    "maxToolSignals": 8,
+    "maxToolSignalChars": 240,
+    "maxSuggestionChars": 300,
+    "prefillOnlyWhenEditorEmpty": true
   },
   "steering": {
     "historyWindow": 20,

@@ -1,6 +1,11 @@
-/**
- * TODO: implement atomic JSON writes via temp file + rename.
- */
-export async function atomicWriteJson(_path: string, _value: unknown): Promise<void> {
-	throw new Error("Not implemented: atomicWriteJson");
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+
+export async function atomicWriteJson(filePath: string, value: unknown): Promise<void> {
+	const directory = path.dirname(filePath);
+	await fs.mkdir(directory, { recursive: true });
+	const tempPath = path.join(directory, `.${path.basename(filePath)}.${randomUUID()}.tmp`);
+	await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+	await fs.rename(tempPath, filePath);
 }

@@ -1,22 +1,39 @@
 import type { Logger } from "../../app/ports/logger.js";
 
-/**
- * Scaffold logger implementation. Behavior intentionally minimal for now.
- */
+type Level = "debug" | "info" | "warn" | "error";
+
+const LEVEL_ORDER: Record<Level, number> = {
+	debug: 10,
+	info: 20,
+	warn: 30,
+	error: 40,
+};
+
 export class ConsoleLogger implements Logger {
-	public debug(_message: string, _meta?: Record<string, unknown>): void {
-		// TODO: implement structured debug logging.
+	public constructor(private readonly level: Level = "info") {}
+
+	public debug(message: string, meta?: Record<string, unknown>): void {
+		this.log("debug", message, meta);
 	}
 
-	public info(_message: string, _meta?: Record<string, unknown>): void {
-		// TODO: implement structured info logging.
+	public info(message: string, meta?: Record<string, unknown>): void {
+		this.log("info", message, meta);
 	}
 
-	public warn(_message: string, _meta?: Record<string, unknown>): void {
-		// TODO: implement structured warn logging.
+	public warn(message: string, meta?: Record<string, unknown>): void {
+		this.log("warn", message, meta);
 	}
 
-	public error(_message: string, _meta?: Record<string, unknown>): void {
-		// TODO: implement structured error logging.
+	public error(message: string, meta?: Record<string, unknown>): void {
+		this.log("error", message, meta);
+	}
+
+	private log(level: Level, message: string, meta?: Record<string, unknown>): void {
+		if (LEVEL_ORDER[level] < LEVEL_ORDER[this.level]) return;
+		const payload = meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
+		const line = `[pi-autoprompter:${level}] ${message}${payload}`;
+		if (level === "error") console.error(line);
+		else if (level === "warn") console.warn(line);
+		else console.log(line);
 	}
 }

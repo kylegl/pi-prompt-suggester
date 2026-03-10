@@ -7,7 +7,8 @@ import type { StalenessChecker } from "../services/staleness-checker.js";
 import type { ReseedRunner } from "./reseed-runner.js";
 
 export interface SuggestionSink {
-	showSuggestion(text: string): Promise<void>;
+	showSuggestion(text: string, options?: { restore?: boolean; generationId?: number }): Promise<void>;
+	clearSuggestion(options?: { generationId?: number }): Promise<void>;
 }
 
 export interface TurnEndOrchestratorDeps {
@@ -18,14 +19,46 @@ export interface TurnEndOrchestratorDeps {
 	suggestionEngine: SuggestionEngine;
 	suggestionSink: SuggestionSink;
 	logger: Logger;
+	checkForStaleness: boolean;
 }
 
 export class TurnEndOrchestrator {
-	public constructor(private readonly deps: TurnEndOrchestratorDeps) {
-		void this.deps;
-	}
+	public constructor(private readonly deps: TurnEndOrchestratorDeps) {}
 
-	public async handle(_turn: TurnContext): Promise<void> {
-		throw new Error("Not implemented: TurnEndOrchestrator.handle");
+	public async handle(turn: TurnContext, generationId?: number): Promise<void> {
+		if (this.deps.checkForStaleness) {
+			const currentSeed = await this.deps.seedStore.load();
+			const staleness = await this.deps.stalenessChecker.check(currentSeed);
+			if (staleness.stale && staleness.trigger) {
+				await this.deps.reseedRunner.trigger(staleness.trigger);
+			}
+		}
+
+		const [seed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
+		const steering = {
+			recentAccepted: state.steeringHistory.filter((event) => event.classification !== "changed_course").reverse(),
+			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
+		};
+		const suggestion = await this.deps.suggestionEngine.suggest(turn, seed, steering);
+		if (suggestion.kind === "no_suggestion") {
+			await this.deps.suggestionSink.clearSuggestion({ generationId });
+			await this.deps.stateStore.save({
+				...state,
+				lastSuggestion: undefined,
+			});
+			return;
+		}
+
+		await this.deps.suggestionSink.showSuggestion(suggestion.text, { generationId });
+		await this.deps.stateStore.save({
+			...state,
+			lastSuggestion: {
+				text: suggestion.text,
+				shownAt: turn.occurredAt,
+				turnId: turn.turnId,
+				sourceLeafId: turn.sourceLeafId,
+			},
+		});
+		this.deps.logger.info("suggestion.generated", { turnId: turn.turnId });
 	}
 }

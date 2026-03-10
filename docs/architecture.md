@@ -1,101 +1,176 @@
-# Architecture (Revised)
+# Architecture (Implemented)
 
 ## Overview
 
-`pi-autoprompter` has three runtime parts:
+`pi-autoprompter` has four main runtime pieces:
 
-1. **Suggestion pipeline** (every agent turn)
-2. **Async seed manager** (background, non-blocking)
-3. **Steering tracker** (accepted vs changed history)
+1. **Suggestion pipeline** — runs on `agent_end`
+2. **Async seed manager** — background, non-blocking reseeding
+3. **Steering tracker** — branch-aware accepted vs changed history
+4. **UI sink** — safe editor prefill with widget fallback
 
-The system intentionally avoids complex heuristic ladders. The prompt-generator model gets rich context and decides.
+The system keeps the deterministic core small and relies on model quality plus structured context.
 
 ---
 
-## 1) Async seed manager
+## 1) Seed storage vs runtime state
+
+### Project-global
+Stored in:
+- `./.pi/autoprompter/seed.json`
+
+This contains:
+- durable project intent summary
+- key file hashes
+- source commit
+- seed/generator/config metadata
+
+### Session/branch-local
+Stored as pi custom session entries (`autoprompter-state`).
+
+This contains:
+- last shown suggestion
+- steering history (`accepted_exact | accepted_edited | changed_course`)
+
+This design matches pi’s tree-structured sessions and survives `/tree`, `/fork`, and resume behavior correctly.
+
+---
+
+## 2) Async seed manager
 
 ### Requirements
 - Never block session startup.
-- Run seeding/reseeding in background.
-- Check seed staleness on session start and after every agent turn.
+- Run at most one reseed job at a time.
+- Re-run once if a new reseed trigger arrives while a reseed is already running.
 
-### Flow
-1. Load existing seed if present.
-2. Run staleness check (`keyFiles` hash + optional git diff from `sourceCommit`).
-3. If stale/missing, enqueue async reseed with payload:
-   - `reason`
-   - `changedFiles[]`
-   - optional `gitDiffSummary`
-4. Persist new `seed.json` when ready.
+### Trigger points
+- `session_start`
+- `session_tree`
+- `session_fork`
+- `session_switch`
+- `agent_end`
+- manual `/autoprompter reseed`
 
-### Read-only policy
-- Prefer isolated seeding worker with restricted tools.
-- If strict RO sandbox is unavailable, enforce practical guardrails:
-  - read-only instruction in prompt
-  - pre/post `git status --porcelain` checks
-  - reject run if any files changed
+### Staleness rules
+The seed is considered stale when:
+- it is missing,
+- a stored key-file hash changed,
+- configured high-signal files changed,
+- config fingerprint changed,
+- generator or prompt versions changed.
+
+### Seeder safety
+Seeding is implemented as:
+- local repo signal collection,
+- followed by a direct model call,
+- followed by local seed persistence.
+
+No separate tool-using seeder agent is used, so the implementation is effectively read-only.
 
 ---
 
-## 2) Suggestion pipeline
+## 3) Suggestion pipeline
 
 ### Trigger
-- `agent_end` (or equivalent turn-end hook)
+- `agent_end`
+
+### Why `agent_end`
+A user prompt may span multiple internal turns. Suggesting only after the full completion avoids premature editor changes.
 
 ### Inputs
-- latest assistant turn text (raw)
-- turn status (`success | error | aborted`)
-- intent seed (if available)
-- steering history (recent accepted/changed examples)
+- latest assistant completion text
+- completion status (`success | error | aborted`)
+- recent user prompts from the current branch
+- extracted tool signals and touched files
+- unresolved question lines from the assistant output
+- intent seed
+- recent accepted steering examples
+- recent changed steering examples
 
-### Deterministic fast-path
-- If turn status is `error` or `aborted`, suggest `continue` directly.
+### Fast path
+If the completion status is `error` or `aborted`, the system suggests:
+
+```text
+continue
+```
 
 ### Model path
-- Build meta prompt with fixed sections:
-  1) role/task
-  2) latest assistant output
-  3) turn status
-  4) seed summary
-  5) accepted examples
-  6) changed examples
-  7) instructions
-- Model returns plain text:
-  - one suggestion, or
-  - `[no suggestion]`
-
-### UI
-- Prefill editor (`ctx.ui.setEditorText(...)`) for MVP.
+All successful completions use the prompt-generator meta prompt and return either:
+- one suggestion string, or
+- `[no suggestion]`
 
 ---
 
-## 3) Steering tracker
+## 4) Steering tracker
 
-For each shown suggestion, capture next user message and store:
+For each shown suggestion, the next real user `input` event is compared against it.
+
+Stored fields:
 - `suggestedPrompt`
 - `actualUserPrompt`
-- `classification` (`accepted_exact | accepted_edited | changed_course`)
+- `classification`
 - `similarity`
+- `timestamp`
 
-This history is fed back into subsequent prompt generation as concrete examples.
-
----
-
-## 4) Storage
-
-- `./.pi/autoprompter/seed.json`
-- `./.pi/autoprompter/state.json`
-
-`state.json` includes:
-- `lastSuggestion`
-- reseed job state (`running`, `pending`, `lastCheckAt`)
-- bounded `steeringHistory[]`
+Steering is recorded only for real user-originated input, not extension-generated input.
 
 ---
 
-## 5) Integration points
+## 5) UI strategy
 
-- `session_start`: load state; trigger async staleness check/reseed if needed
-- `agent_end`: stale check + suggestion generation
-- user submit hook (or nearest equivalent): steering classification/persistence
-- `/autoprompter reseed`: manual async reseed trigger
+### Safe prefill policy
+The extension prefills the editor only if:
+- UI is available,
+- the agent is idle,
+- there are no pending queued messages,
+- the editor is empty (by default).
+
+### Fallback
+If prefill would overwrite text, the suggestion is shown in a widget below the editor and a footer status is set.
+
+### Stale update suppression
+A runtime epoch is bumped whenever session/user state changes. Late suggestion results are dropped if they target an older epoch.
+
+---
+
+## 6) Main modules
+
+### Application services
+- `StalenessChecker`
+- `PromptContextBuilder`
+- `SuggestionEngine`
+- `SteeringClassifier`
+- `RepositoryContextBuilder`
+- `conversation-signals.ts`
+
+### Orchestrators
+- `SessionStartOrchestrator`
+- `TurnEndOrchestrator` (used for `agent_end` completion handling)
+- `UserSubmitOrchestrator`
+- `ReseedRunner`
+
+### Infrastructure
+- `JsonSeedStore`
+- `SessionStateStore`
+- `PiModelClient`
+- `PiSuggestionSink`
+- `GitClient`
+- `Sha256FileHash`
+- `InMemoryTaskQueue`
+
+---
+
+## 7) Operational commands
+
+- `/autoprompter status`
+- `/autoprompter reseed`
+- `/autoprompter clear`
+
+---
+
+## 8) Known future work
+
+- custom ghost-text editor / Tab-accept UX
+- replay/eval harness
+- separate model selection for seeding vs suggestion
+- richer touched-file inference from bash activity

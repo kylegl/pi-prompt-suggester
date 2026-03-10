@@ -1,6 +1,9 @@
 export interface SeedConfig {
 	keyFileGlobs: string[];
 	maxDiffChars: number;
+	maxFiles: number;
+	maxFileChars: number;
+	maxRepositoryContextChars: number;
 }
 
 export interface ReseedConfig {
@@ -14,6 +17,12 @@ export interface SuggestionConfig {
 	noSuggestionToken: string;
 	fastPathContinueOnError: boolean;
 	maxAssistantTurnChars: number;
+	maxRecentUserPrompts: number;
+	maxRecentUserPromptChars: number;
+	maxToolSignals: number;
+	maxToolSignalChars: number;
+	maxSuggestionChars: number;
+	prefillOnlyWhenEditorEmpty: boolean;
 }
 
 export interface SteeringConfig {

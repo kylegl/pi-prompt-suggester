@@ -1,14 +1,33 @@
 import type { TaskQueue } from "../../app/ports/task-queue.js";
 
-/**
- * TODO: implement single-process queue with running/pending semantics.
- */
 export class InMemoryTaskQueue implements TaskQueue {
-	public async enqueue(_name: string, _task: () => Promise<void>): Promise<void> {
-		throw new Error("Not implemented: InMemoryTaskQueue.enqueue");
+	private readonly tails = new Map<string, Promise<void>>();
+	private readonly running = new Set<string>();
+
+	public async enqueue(name: string, task: () => Promise<void>): Promise<void> {
+		const previous = this.tails.get(name) ?? Promise.resolve();
+		const next = previous
+			.catch(() => undefined)
+			.then(async () => {
+				this.running.add(name);
+				try {
+					await task();
+				} finally {
+					this.running.delete(name);
+				}
+			});
+
+		this.tails.set(name, next);
+		try {
+			await next;
+		} finally {
+			if (this.tails.get(name) === next) {
+				this.tails.delete(name);
+			}
+		}
 	}
 
-	public isRunning(_name: string): boolean {
-		throw new Error("Not implemented: InMemoryTaskQueue.isRunning");
+	public isRunning(name: string): boolean {
+		return this.running.has(name);
 	}
 }
