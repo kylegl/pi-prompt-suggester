@@ -93,7 +93,7 @@ Instructions:
 - Learn from changed examples: avoid repeating rejected phrasing or direction.
 - Prefer specific next actions over generic meta-prompts.
 - You may return a multi-line prompt when it improves clarity.
-- Keep the result under ${context.maxSuggestionChars} characters.
+- Keep the result under ${context.maxSuggestionChars} characters. Prefer less characters when possible.
 - If confidence is low, output exactly ${context.noSuggestionToken}
 - Return plain text only. No explanation. No JSON.`;
 }
