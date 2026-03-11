@@ -262,6 +262,7 @@ async function readJson<T>(filePath: string): Promise<T | undefined> {
 export class SessionStateStore implements StateStore {
 	private readonly ephemeral = new Map<string, InMemorySessionState>();
 	private readonly migrationTasks = new Map<string, Promise<void>>();
+	private readonly usageWriteTasks = new Map<string, Promise<void>>();
 
 	public constructor(
 		private readonly cwd: string,
@@ -315,17 +316,19 @@ export class SessionStateStore implements StateStore {
 		}
 
 		await this.ensureMigrated(context);
-		const current = await this.loadUsageState(context);
-		const next = {
-			suggester: kind === "suggester" ? addUsage(current.suggester, usage) : current.suggester,
-			seeder: kind === "seeder" ? addUsage(current.seeder, usage) : current.seeder,
-		};
-		await atomicWriteJson(context.usageFile!, {
-			schemaVersion: STORE_SCHEMA_VERSION,
-			suggestionUsage: next.suggester,
-			seederUsage: next.seeder,
-			updatedAt: new Date().toISOString(),
-		} satisfies PersistedUsageState);
+		await this.enqueueUsageWrite(context, async () => {
+			const current = await this.loadUsageState(context);
+			const next = {
+				suggester: kind === "suggester" ? addUsage(current.suggester, usage) : current.suggester,
+				seeder: kind === "seeder" ? addUsage(current.seeder, usage) : current.seeder,
+			};
+			await atomicWriteJson(context.usageFile!, {
+				schemaVersion: STORE_SCHEMA_VERSION,
+				suggestionUsage: next.suggester,
+				seederUsage: next.seeder,
+				updatedAt: new Date().toISOString(),
+			} satisfies PersistedUsageState);
+		});
 	}
 
 	private getStorageContext(): SessionStorageContext | undefined {
@@ -375,6 +378,20 @@ export class SessionStateStore implements StateStore {
 
 	private stateFilePath(interactionDir: string, key: string): string {
 		return path.join(interactionDir, `${normalizeSessionKey(key)}.json`);
+	}
+
+	private async enqueueUsageWrite(context: SessionStorageContext, write: () => Promise<void>): Promise<void> {
+		const queueKey = context.usageFile!;
+		const previous = this.usageWriteTasks.get(queueKey) ?? Promise.resolve();
+		const next = previous.catch(() => undefined).then(write);
+		this.usageWriteTasks.set(queueKey, next);
+		try {
+			await next;
+		} finally {
+			if (this.usageWriteTasks.get(queueKey) === next) {
+				this.usageWriteTasks.delete(queueKey);
+			}
+		}
 	}
 
 	private async ensureMigrated(context: SessionStorageContext): Promise<void> {
