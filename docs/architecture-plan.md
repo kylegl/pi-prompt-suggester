@@ -112,7 +112,7 @@ Sources (highest precedence last):
 1. built-in defaults (`src/config/schema.ts`)
 2. project file: `.pi/autoprompter/config.json`
 3. optional user file: `~/.pi/autoprompter/config.json`
-4. env overrides (`PI_AUTOPROMPTER_*`)
+4. additional config overlays (user/project)
 
 All config is validated at startup; invalid config fails with clear messages.
 
