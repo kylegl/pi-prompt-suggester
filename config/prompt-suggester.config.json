@@ -14,7 +14,7 @@
     "fastPathContinueOnError": true,
     "maxAssistantTurnChars": 100000,
     "maxRecentUserPrompts": 20,
-    "maxRecentUserPromptChars": 1000,
+    "maxRecentUserPromptChars": 500,
     "maxToolSignals": 8,
     "maxToolSignalChars": 240,
     "maxTouchedFiles": 8,
