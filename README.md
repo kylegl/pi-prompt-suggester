@@ -85,4 +85,5 @@ Notes:
 ### Behavior summary
 - Suggestion generation runs on `agent_end`
 - Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
-- Suggestions are ghosted in editor when safe; otherwise shown below editor
+- Single-line suggestions are ghosted in editor when safe; multiline suggestions are shown in a wrapped, scrollable below-editor widget
+- Scroll multiline widget with `Alt+↑/↓`, `Alt+K/J`, `PgUp/PgDn`, `Home/End`

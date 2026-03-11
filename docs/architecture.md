@@ -77,9 +77,9 @@ Behavior:
 
 ## 4) UI behavior
 
-- Ghost suggestion in editor when safe (idle, no pending messages, editor-empty policy)
+- Single-line suggestions can ghost in editor when safe (idle, no pending messages, editor-empty policy)
 - Space-to-accept when editor is empty
-- Non-compatible typing falls back to below-editor widget
+- Multiline (and non-compatible) suggestions render below editor as wrapped content with keyboard scrolling
 - Footer lines:
   - event/status line
   - suggester usage line (prompt tokens, last-call tokens/cost, cumulative totals)
