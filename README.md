@@ -89,6 +89,7 @@ All controls are under `/suggester`.
 - `/suggester reseed` — trigger async reseed
 - `/suggester model [show|set|clear] <seeder|suggester> [provider/model|session-default]`
 - `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh|session-default]`
+- `/suggester config [show|reset [project|user|all]]` — inspect override paths or reset overrides to defaults
 - `/suggester seed-trace [limit]` — show latest seeder run trace from persistent logs
 
 ### Reject + hint commands
@@ -109,9 +110,11 @@ Merge order:
 3. project override
 
 Notes:
+- config now has `schemaVersion`; override files are only rewritten when a schema migration is needed.
 - `inference.* = session-default` means “use current pi session model/thinking”.
 - `feedback.*` controls reject+hint memory and hinted suggestion length.
 - `/suggester model ...` and `/suggester thinking ...` edit `.pi/suggester/config.json` and apply immediately (no extension reload).
+- `/suggester config reset [project|user|all]` deletes override files so behavior returns to defaults.
 
 ### Runtime artifacts
 - seed: `.pi/suggester/seed.json`

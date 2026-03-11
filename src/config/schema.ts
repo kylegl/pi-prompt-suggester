@@ -1,3 +1,4 @@
+import { CURRENT_CONFIG_SCHEMA_VERSION } from "./migrations.js";
 import type { PromptSuggesterConfig } from "./types.js";
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -20,8 +21,13 @@ function isModelSetting(value: unknown): boolean {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
+function isSchemaVersion(value: unknown): boolean {
+	return typeof value === "number" && Number.isInteger(value) && value === CURRENT_CONFIG_SCHEMA_VERSION;
+}
+
 export function validateConfig(config: unknown): config is PromptSuggesterConfig {
 	if (!isObject(config)) return false;
+	if (!isSchemaVersion(config.schemaVersion)) return false;
 	if (!isObject(config.seed) || !isObject(config.reseed) || !isObject(config.suggestion)) return false;
 	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.feedback) || !isObject(config.inference)) return false;
 

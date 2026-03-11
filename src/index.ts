@@ -4,6 +4,7 @@ import { buildLatestHistoricalTurnContext } from "./app/services/conversation-si
 import { PiExtensionAdapter } from "./infra/pi/extension-adapter.js";
 import { GhostSuggestionEditor } from "./infra/pi/ghost-suggestion-editor.js";
 import {
+	handleConfigCommand,
 	handleModelCommand,
 	handleSeedTraceCommand,
 	handleThinkingCommand,
@@ -175,6 +176,10 @@ export default function suggester(pi: ExtensionAPI) {
 		onThinkingCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleThinkingCommand(args, ctx, composition);
+		},
+		onConfigCommand: async (args, ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			await handleConfigCommand(args, ctx, composition);
 		},
 		onSeedTraceCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);

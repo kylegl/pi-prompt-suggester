@@ -52,6 +52,7 @@ export interface InferenceConfig {
 }
 
 export interface PromptSuggesterConfig {
+	schemaVersion: number;
 	seed: SeedConfig;
 	reseed: ReseedConfig;
 	suggestion: SuggestionConfig;

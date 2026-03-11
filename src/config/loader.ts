@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { migrateOverrideConfig } from "./migrations.js";
 import type { PromptSuggesterConfig } from "./types.js";
 import { validateConfig } from "./schema.js";
 
@@ -38,6 +39,25 @@ async function readJsonIfExists(filePath: string): Promise<unknown | undefined> 
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
 		throw new Error(`Failed to load config ${filePath}: ${(error as Error).message}`);
 	}
+}
+
+async function writeJson(filePath: string, value: Record<string, unknown>): Promise<void> {
+	await fs.mkdir(path.dirname(filePath), { recursive: true });
+	await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function readOverrideConfig(filePath: string): Promise<Record<string, unknown> | undefined> {
+	const parsed = await readJsonIfExists(filePath);
+	if (parsed === undefined) return undefined;
+	if (!isObject(parsed)) {
+		throw new Error(`Override config ${filePath} must be a JSON object.`);
+	}
+
+	const migration = migrateOverrideConfig(parsed);
+	if (migration.changed) {
+		await writeJson(filePath, migration.config);
+	}
+	return migration.config;
 }
 
 async function readRequiredConfig(filePath: string): Promise<PromptSuggesterConfig> {
@@ -83,8 +103,8 @@ export class FileConfigLoader implements ConfigLoader {
 
 		const [defaultConfig, userConfig, projectConfig] = await Promise.all([
 			readRequiredConfig(defaultPath),
-			readJsonIfExists(userPath),
-			readJsonIfExists(projectPath),
+			readOverrideConfig(userPath),
+			readOverrideConfig(projectPath),
 		]);
 		const merged = deepMerge(deepMerge(defaultConfig, userConfig), projectConfig);
 

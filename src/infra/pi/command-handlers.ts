@@ -1,9 +1,11 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { LoggedEvent } from "../../app/ports/event-log.js";
 import type { AppComposition } from "../../composition/root.js";
+import { FileConfigLoader } from "../../config/loader.js";
 import type { PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
 
 type ModelRole = "seeder" | "suggester";
@@ -116,6 +118,7 @@ export function renderStatus(
 		`- last reseed reason: ${seed?.lastReseedReason ?? "(none)"}`,
 		`- implementation status: ${seed?.implementationStatusSummary?.slice(0, 140) ?? "(none)"}`,
 		`- active session model: ${activeModel}`,
+		`- config schemaVersion: ${config.schemaVersion}`,
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,
 		`- prompt suggester usage: calls=${state.suggestionUsage.calls}, totalTokens=${state.suggestionUsage.totalTokens}, totalCost=$${state.suggestionUsage.costTotal.toFixed(4)}`,
@@ -127,6 +130,10 @@ export function renderStatus(
 
 function projectOverridePath(cwd: string): string {
 	return path.join(cwd, ".pi", "suggester", "config.json");
+}
+
+function userOverridePath(homeDir: string = os.homedir()): string {
+	return path.join(homeDir, ".pi", "suggester", "config.json");
 }
 
 async function readJsonIfExists(filePath: string): Promise<Record<string, unknown>> {
@@ -163,6 +170,11 @@ async function setProjectInferenceValue(
 	});
 }
 
+async function refreshCompositionConfig(ctx: ExtensionCommandContext, composition: AppComposition): Promise<void> {
+	const next = await new FileConfigLoader(ctx.cwd).load();
+	Object.assign(composition.config, next);
+}
+
 async function applyConfigChange(
 	ctx: ExtensionCommandContext,
 	composition: AppComposition,
@@ -170,7 +182,7 @@ async function applyConfigChange(
 	value: string,
 ): Promise<void> {
 	await setProjectInferenceValue(ctx.cwd, key, value);
-	(composition.config.inference as unknown as Record<string, string>)[key] = value;
+	await refreshCompositionConfig(ctx, composition);
 	ctx.ui.notify(`suggester config updated: inference.${key}=${value}`, "info");
 }
 
@@ -265,6 +277,67 @@ export async function handleThinkingCommand(
 	}
 
 	await applyConfigChange(ctx, composition, key, rawLevel);
+}
+
+export async function handleConfigCommand(
+	args: string,
+	ctx: ExtensionCommandContext,
+	composition: AppComposition,
+): Promise<void> {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0 || tokens[0] === "show") {
+		ctx.ui.notify(
+			[
+				"suggester config",
+				`- effective schemaVersion=${composition.config.schemaVersion}`,
+				`- project override: ${projectOverridePath(ctx.cwd)}`,
+				`- user override: ${userOverridePath()}`,
+				"- reset to defaults: /suggester config reset [project|user|all]",
+			].join("\n"),
+			"info",
+		);
+		return;
+	}
+
+	if (tokens[0] !== "reset") {
+		ctx.ui.notify("Usage: /suggester config [show|reset [project|user|all]]", "error");
+		return;
+	}
+
+	const scope = (tokens[1] ?? "project").toLowerCase();
+	const targets =
+		scope === "all"
+			? [projectOverridePath(ctx.cwd), userOverridePath()]
+			: scope === "user"
+				? [userOverridePath()]
+				: scope === "project"
+					? [projectOverridePath(ctx.cwd)]
+					: undefined;
+	if (!targets) {
+		ctx.ui.notify("Usage: /suggester config reset [project|user|all]", "error");
+		return;
+	}
+
+	const removed: string[] = [];
+	for (const target of targets) {
+		try {
+			await fs.rm(target, { force: true });
+			removed.push(target);
+		} catch (error) {
+			ctx.ui.notify(`Failed to reset config at ${target}: ${(error as Error).message}`, "error");
+			return;
+		}
+	}
+
+	await refreshCompositionConfig(ctx, composition);
+	ctx.ui.notify(
+		[
+			"suggester config reset to defaults",
+			`- removed overrides: ${removed.join(", ")}`,
+			`- effective schemaVersion=${composition.config.schemaVersion}`,
+		].join("\n"),
+		"info",
+	);
 }
 
 export async function handleSeedTraceCommand(

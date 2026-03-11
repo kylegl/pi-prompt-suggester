@@ -20,6 +20,7 @@ export interface ExtensionWiring {
 	onStatusCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onModelCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onThinkingCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
+	onConfigCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onSeedTraceCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onHintSuggestCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onQuoteSuggestCommand: (ctx: ExtensionCommandContext) => Promise<void>;
@@ -136,7 +137,7 @@ export class PiExtensionAdapter {
 
 		this.pi.registerCommand("suggester", {
 			description:
-				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
+				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | config [show|reset] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
@@ -150,6 +151,10 @@ export class PiExtensionAdapter {
 				}
 				if (subcommand === "thinking") {
 					await this.wiring.onThinkingCommand(rest.join(" "), ctx);
+					return;
+				}
+				if (subcommand === "config") {
+					await this.wiring.onConfigCommand(rest.join(" "), ctx);
 					return;
 				}
 				if (subcommand === "seed-trace") {
