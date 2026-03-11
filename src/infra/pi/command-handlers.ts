@@ -53,6 +53,14 @@ function resolveModelRef(models: Model<any>[], raw: string): { ok: true; canonic
 	return { ok: true, canonicalRef: `${match.provider}/${match.id}` };
 }
 
+async function getModelSelectionOptions(ctx: ExtensionContext | ExtensionCommandContext): Promise<string[]> {
+	const refs = new Set<string>();
+	for (const model of await ctx.modelRegistry.getAvailable()) {
+		refs.add(`${model.provider}/${model.id}`);
+	}
+	return [SESSION_DEFAULT, ...Array.from(refs).sort((a, b) => a.localeCompare(b))];
+}
+
 function parsePositiveInt(value: string | undefined, fallback: number): number {
 	if (!value) return fallback;
 	const parsed = Number.parseInt(value, 10);
@@ -316,10 +324,18 @@ export async function handleModelCommand(
 		return;
 	}
 
-	const rawModelRef = tokens.slice(1).join(" ").trim();
+	let rawModelRef = tokens.slice(1).join(" ").trim();
 	if (!rawModelRef) {
-		ctx.ui.notify("Missing model reference.", "error");
-		return;
+		if (!ctx.hasUI) {
+			ctx.ui.notify("Missing model reference.", "error");
+			return;
+		}
+		const selected = await ctx.ui.select(
+			`Select ${role} model`,
+			await getModelSelectionOptions(ctx),
+		);
+		if (!selected) return;
+		rawModelRef = selected;
 	}
 	const resolved = resolveModelRef(ctx.modelRegistry.getAll(), rawModelRef);
 	if (!resolved.ok) {
@@ -669,14 +685,10 @@ export async function handleSettingsUiCommand(
 	};
 
 	const promptModel = async (label: string, currentValue: string): Promise<string | undefined> => {
-		const raw = await ctx.ui.editor(label, currentValue);
-		if (raw === undefined) return undefined;
-		const trimmed = raw.trim();
-		if (!trimmed) {
-			ctx.ui.notify("Model reference cannot be empty.", "error");
-			return undefined;
-		}
-		const resolved = resolveModelRef(ctx.modelRegistry.getAll(), trimmed);
+		const options = await getModelSelectionOptions(ctx);
+		const selected = await ctx.ui.select(`${label} (current: ${currentValue})`, options);
+		if (!selected) return undefined;
+		const resolved = resolveModelRef(ctx.modelRegistry.getAll(), selected);
 		if (!resolved.ok) {
 			ctx.ui.notify(resolved.reason, "error");
 			return undefined;
