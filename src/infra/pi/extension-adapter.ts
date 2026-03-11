@@ -59,7 +59,7 @@ function buildAbortedFallbackTurn(sourceLeafId: string, branchMessages: unknown[
 	return {
 		turnId: sourceLeafId,
 		sourceLeafId,
-		assistantText: "Operation aborted by user.",
+		assistantText: "[aborted]",
 		status: "aborted",
 		occurredAt: new Date().toISOString(),
 		recentUserPrompts: extractRecentUserPrompts(branchMessages),

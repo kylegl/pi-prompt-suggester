@@ -52,6 +52,60 @@ function extractUnresolvedQuestions(text: string): string[] {
 		.filter((line) => line.endsWith("?"));
 }
 
+function extractRecentUserPrompts(messages: AgentMessage[]): string[] {
+	return [...messages]
+		.reverse()
+		.filter((message) => message.role === "user")
+		.map((message) => textFromContent(message.content))
+		.filter(Boolean);
+}
+
+function buildPlaceholderTurnContext(params: {
+	turnId: string;
+	sourceLeafId: string;
+	messagesFromPrompt: AgentMessage[];
+	branchMessages: AgentMessage[];
+	occurredAt: string;
+}): TurnContext | null {
+	const lastMessage = params.messagesFromPrompt.at(-1);
+	if (!lastMessage) return null;
+
+	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
+	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
+
+	if (lastMessage.role === "toolResult") {
+		const status: TurnStatus = lastMessage.isError ? "error" : "success";
+		const assistantText = lastMessage.isError ? "[error/toolcall]" : "[toolcall]";
+		return {
+			turnId: params.turnId,
+			sourceLeafId: params.sourceLeafId,
+			assistantText,
+			status,
+			occurredAt: params.occurredAt,
+			recentUserPrompts,
+			toolSignals,
+			touchedFiles,
+			unresolvedQuestions: [],
+			abortContextNote: undefined,
+		};
+	}
+
+	if (lastMessage.role === "assistant") return null;
+
+	return {
+		turnId: params.turnId,
+		sourceLeafId: params.sourceLeafId,
+		assistantText: "[empty]",
+		status: "success",
+		occurredAt: params.occurredAt,
+		recentUserPrompts,
+		toolSignals,
+		touchedFiles,
+		unresolvedQuestions: [],
+		abortContextNote: undefined,
+	};
+}
+
 export function buildTurnContext(params: {
 	turnId: string;
 	sourceLeafId: string;
@@ -59,20 +113,19 @@ export function buildTurnContext(params: {
 	branchMessages: AgentMessage[];
 	occurredAt: string;
 }): TurnContext | null {
-	const latestAssistant = [...params.messagesFromPrompt].reverse().find((message) => message.role === "assistant");
-	if (!latestAssistant || latestAssistant.role !== "assistant") return null;
+	const latestMessage = params.messagesFromPrompt.at(-1);
+	if (!latestMessage) return null;
+	if (latestMessage.role !== "assistant") {
+		return buildPlaceholderTurnContext(params);
+	}
 
-	const assistantText = textFromContent(latestAssistant.content);
-	const status: TurnStatus = latestAssistant.stopReason === "error"
+	const assistantText = textFromContent(latestMessage.content);
+	const status: TurnStatus = latestMessage.stopReason === "error"
 		? "error"
-		: latestAssistant.stopReason === "aborted"
+		: latestMessage.stopReason === "aborted"
 			? "aborted"
 			: "success";
-	const recentUserPrompts = [...params.branchMessages]
-		.reverse()
-		.filter((message) => message.role === "user")
-		.map((message) => textFromContent(message.content))
-		.filter(Boolean);
+	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
 	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
 	return {
 		turnId: params.turnId,
@@ -99,27 +152,21 @@ export function buildLatestHistoricalTurnContext(params: {
 	sourceLeafId: string;
 	branchMessages: AgentMessage[];
 }): TurnContext | null {
-	let lastAssistantIndex = -1;
-	for (let i = params.branchMessages.length - 1; i >= 0; i -= 1) {
-		if (params.branchMessages[i]?.role === "assistant") {
-			lastAssistantIndex = i;
-			break;
-		}
-	}
-	if (lastAssistantIndex < 0) return null;
+	const latestMessage = params.branchMessages.at(-1) as { role?: string; timestamp?: unknown } | undefined;
+	if (!latestMessage) return null;
+	if (latestMessage.role === "user") return null;
 
 	let startIndex = 0;
-	for (let i = lastAssistantIndex - 1; i >= 0; i -= 1) {
+	for (let i = params.branchMessages.length - 1; i >= 0; i -= 1) {
 		if (params.branchMessages[i]?.role === "user") {
 			startIndex = i + 1;
 			break;
 		}
 	}
 
-	const latestAssistant = params.branchMessages[lastAssistantIndex] as { timestamp?: unknown } | undefined;
 	const occurredAt =
-		typeof latestAssistant?.timestamp === "number"
-			? new Date(latestAssistant.timestamp).toISOString()
+		typeof latestMessage.timestamp === "number"
+			? new Date(latestMessage.timestamp).toISOString()
 			: new Date().toISOString();
 
 	return buildTurnContext({
