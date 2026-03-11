@@ -76,7 +76,7 @@ Merge order:
 Notes:
 - `inference.* = session-default` means “use current pi session model/thinking”.
 - `feedback.*` controls reject+hint memory and hinted suggestion length.
-- `/suggester model ...` and `/suggester thinking ...` edit `.pi/suggester/config.json` then reload.
+- `/suggester model ...` and `/suggester thinking ...` edit `.pi/suggester/config.json` and apply immediately (no extension reload).
 
 ### Runtime artifacts
 - seed: `.pi/suggester/seed.json`

@@ -165,13 +165,13 @@ async function setProjectInferenceValue(
 
 async function applyConfigChange(
 	ctx: ExtensionCommandContext,
-	cwd: string,
+	composition: AppComposition,
 	key: keyof PromptSuggesterConfig["inference"],
 	value: string,
 ): Promise<void> {
-	await setProjectInferenceValue(cwd, key, value);
-	ctx.ui.notify(`suggester config updated: inference.${key}=${value}. Reloading...`, "info");
-	await ctx.reload();
+	await setProjectInferenceValue(ctx.cwd, key, value);
+	(composition.config.inference as unknown as Record<string, string>)[key] = value;
+	ctx.ui.notify(`suggester config updated: inference.${key}=${value}`, "info");
 }
 
 export async function handleModelCommand(
@@ -205,7 +205,7 @@ export async function handleModelCommand(
 
 	const key = role === "seeder" ? "seederModel" : "suggesterModel";
 	if (action === "clear" || (tokens[1] ?? "").toLowerCase() === "clear") {
-		await applyConfigChange(ctx, ctx.cwd, key, SESSION_DEFAULT);
+		await applyConfigChange(ctx, composition, key, SESSION_DEFAULT);
 		return;
 	}
 
@@ -220,7 +220,7 @@ export async function handleModelCommand(
 		return;
 	}
 
-	await applyConfigChange(ctx, ctx.cwd, key, resolved.canonicalRef);
+	await applyConfigChange(ctx, composition, key, resolved.canonicalRef);
 }
 
 export async function handleThinkingCommand(
@@ -254,7 +254,7 @@ export async function handleThinkingCommand(
 
 	const key = role === "seeder" ? "seederThinking" : "suggesterThinking";
 	if (action === "clear" || (tokens[1] ?? "").toLowerCase() === "clear") {
-		await applyConfigChange(ctx, ctx.cwd, key, SESSION_DEFAULT);
+		await applyConfigChange(ctx, composition, key, SESSION_DEFAULT);
 		return;
 	}
 
@@ -264,7 +264,7 @@ export async function handleThinkingCommand(
 		return;
 	}
 
-	await applyConfigChange(ctx, ctx.cwd, key, rawLevel);
+	await applyConfigChange(ctx, composition, key, rawLevel);
 }
 
 export async function handleSeedTraceCommand(
