@@ -1,8 +1,8 @@
 # Architecture Decisions (Current)
 
 ## 1) Seed is project-global; runtime behavior is session/branch-local
-- **Decision:** store seed in `.pi/suggester/seed.json`, store interaction/runtime state in `prompt-suggester-state` custom session entries.
-- **Why:** project intent is repo-wide, while suggestions/steering/overrides are branch-specific.
+- **Decision:** store seed in `.pi/suggester/seed.json`, store interaction/runtime state in `suggester-state` custom session entries.
+- **Why:** project intent is repo-wide, while per-branch suggestion/steering traces should stay with the active conversation branch.
 
 ## 2) Suggestion generation runs on `agent_end`
 - **Decision:** trigger suggestions after the full completion, not each internal tool turn.
@@ -28,18 +28,18 @@
 - **Decision:** preserve configurable fast-path `continue` for both `error` and `aborted` turns.
 - **Why:** keeps recovery/pivot behavior immediate and predictable after unsuccessful completions.
 
-## 8) Suggestion UX uses ghost editor + guarded fallback
-- **Decision:** render ghost suggestion when safe; otherwise show below-editor widget.
-- **Why:** maximize low-friction acceptance without clobbering user input.
+## 8) Suggestion UX is ghost-only with guarded rendering
+- **Decision:** render ghost suggestion only when editor state is compatible; otherwise hide it.
+- **Why:** keep the UX minimal and avoid a separate below-editor fallback surface.
 
-## 9) Per-role model and thinking overrides are persisted
-- **Decision:** `seeder` and `suggester` each support override for model and thinking level via commands.
-- **Why:** quality/cost tuning differs between deep seeding and fast next-prompt suggestion.
+## 9) Per-role model and thinking overrides are persisted in project config
+- **Decision:** `seeder` and `suggester` each support override for model and thinking level via commands, written to `.pi/suggester/config.json`.
+- **Why:** quality/cost tuning differs between deep seeding and fast next-prompt suggestion, and file-backed config survives restarts.
 
 ## 10) Observability is persisted to bounded NDJSON logs
 - **Decision:** log seeder and suggestion events to `.pi/suggester/logs/events.ndjson` with truncation/rotation.
 - **Why:** enables post-run debugging/tuning without noisy stdout.
 
 ## 11) Operational command surface remains unified under `/suggester`
-- **Decision:** status/reseed/clear/model/thinking/seed-trace are subcommands.
+- **Decision:** status/reseed/model/thinking/seed-trace are subcommands.
 - **Why:** one discoverable command namespace keeps UX coherent.

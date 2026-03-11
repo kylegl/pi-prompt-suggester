@@ -7,7 +7,7 @@
 1. **Suggestion pipeline** (runs on `agent_end`)
 2. **Agentic reseed runner** (background, non-blocking)
 3. **Steering tracker** (session/branch-aware)
-4. **UI sink** (ghost suggestion + fallback widget + usage line)
+4. **UI sink** (ghost suggestion + usage line)
 5. **Persistent observability log** (`.pi/suggester/logs/events.ndjson`)
 
 ---
@@ -24,13 +24,13 @@ Contains:
 - generator/prompt/config fingerprints
 
 ### Session/branch-local (pi custom entries)
-`prompt-suggester-state`
+`suggester-state`
 
 Contains:
 - last shown suggestion
 - steering history (`accepted_exact | accepted_edited | changed_course`)
 - suggester usage/cost counters
-- per-role overrides: `seeder` and `suggester` model + thinking level
+- reject+hint memory (`rejectionHints`)
 
 ---
 
@@ -79,7 +79,7 @@ Behavior:
 
 - Suggestions can ghost in editor when safe (idle, no pending messages, editor-empty policy; multiline requires empty editor)
 - Space-to-accept when editor is empty
-- Non-compatible cases render below editor as wrapped content with keyboard scrolling and `Alt+Enter` accept
+- Non-compatible cases hide the ghost suggestion (no below-editor fallback widget)
 - Footer lines:
   - path/model/token/context lines
   - wrapped extension status lines (including suggester usage) when content exceeds width

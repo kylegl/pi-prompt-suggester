@@ -47,8 +47,8 @@ Therefore, we use a **two-stage system** plus lightweight feedback:
 
 ## User experience goals
 
-- After each assistant turn, show a lightweight ghost suggestion in the editor area.
-- User accepts suggestion quickly (e.g., Tab), edits if needed, submits.
+- After each assistant turn, show a lightweight ghost suggestion in the editor area when editor state is compatible.
+- User accepts suggestion quickly (Space on empty editor), edits if needed, submits.
 - Suggestions feel context-aware, repo-aware, and trajectory-aware.
 - Suggestions are concise, actionable, and phrased in the user's likely style.
 
@@ -87,7 +87,7 @@ Output:
 ### 4) pi integration
 
 - Extension hooks into turn lifecycle
-- Prefills or ghosts suggestion in editor
+- Ghosts suggestion in editor when compatible (no separate fallback widget)
 - Keyboard accept/edit workflow
 
 ### 5) Suggestion steering signal
@@ -112,12 +112,12 @@ Output:
 
 ## Open questions
 
-- Best UI implementation for ghost text vs prefill in pi TUI
+- Best guardrails for when ghost text should be shown vs hidden in pi TUI
 - Optimal history window size vs cost
-- Confidence calibration and fallback behavior
+- Confidence calibration and ghost visibility behavior
 - Best default models for seeding vs turn-time suggestion
 
 ## Naming
 
-Working name: **pi-autoprompter**
+Working name: **pi-prompt-suggester**
 Alternative: `autoprompter`

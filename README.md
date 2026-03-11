@@ -14,7 +14,7 @@ Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
 2. **Suggestion pass (meta prompt, frequent):**
    - Use recent conversation trajectory + latest assistant completion + `intent seed`
    - Generate a high-quality next-prompt suggestion
-   - Safely prefill the editor when possible, otherwise show the suggestion as a widget
+   - Render as ghost text when editor state is compatible (no widget fallback)
 
 ## Current implementation
 
@@ -24,7 +24,7 @@ Implemented end-to-end:
 - session/branch-aware steering history via pi custom session entries
 - `agent_end`-driven prompt suggestion generation
 - fast-path `continue` for non-success completions (`error` and `aborted`) when enabled
-- suggestion display with guarded editor prefill
+- ghost-only suggestion display with guarded editor compatibility checks
 - steering capture from the next real user input
 - persistent observability log in `.pi/suggester/logs/events.ndjson`
 - `/suggester status`, `/suggester reseed`
@@ -120,7 +120,7 @@ Notes:
 ### Behavior summary
 - Suggestion generation runs on `agent_end`
 - Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
-- Suggestions are ghosted in editor when safe (including multiline when editor is empty)
+- Suggestions are ghosted in editor when safe (including multiline only when editor is empty)
 - Press `Space` on an empty editor to accept the full ghost suggestion
-- Fallback below-editor widget is wrapped + scrollable (`Alt+↑/↓`, `Alt+K/J`, `PgUp/PgDn`, `Home/End`) and `Alt+Enter` accepts it into the editor
+- If editor state is incompatible, ghost suggestion is hidden (no below-editor fallback widget)
 - Footer now wraps extension statuses (including suggester usage/tokens) across multiple lines instead of truncating to one line
