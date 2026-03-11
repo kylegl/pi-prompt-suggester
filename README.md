@@ -1,5 +1,7 @@
 # pi-prompt-suggester
 
+[npm package](https://www.npmjs.com/package/@guwidoe/pi-prompt-suggester)
+
 A pi extension that suggests the user's likely next prompt after each assistant completion.
 
 ## Core idea

@@ -1,9 +1,17 @@
 {
   "name": "@guwidoe/pi-prompt-suggester",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "type": "module",
   "description": "Intent-aware next-prompt suggestion extension for pi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guwidoe/pi-prompt-suggester.git"
+  },
+  "homepage": "https://github.com/guwidoe/pi-prompt-suggester#readme",
+  "bugs": {
+    "url": "https://github.com/guwidoe/pi-prompt-suggester/issues"
+  },
   "main": "src/index.ts",
   "keywords": [
     "pi-package"
