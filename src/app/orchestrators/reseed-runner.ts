@@ -52,6 +52,7 @@ export interface ReseedRunnerDeps {
 export class ReseedRunner {
 	private running = false;
 	private pendingTrigger: ReseedTrigger | null = null;
+	private consecutiveFailureCount = 0;
 	private readonly cwd: string;
 	private readonly configFingerprint: string;
 
@@ -112,6 +113,7 @@ export class ReseedRunner {
 				await this.recordSeederUsage(seedResult.usage);
 				const seed = await this.finalizeSeed(seedResult.seed, current);
 				await this.deps.seedStore.save(seed);
+				this.consecutiveFailureCount = 0;
 				this.deps.logger.info("reseed.completed", {
 					runId,
 					reason: current.reason,
@@ -125,13 +127,20 @@ export class ReseedRunner {
 				if (usage) {
 					await this.recordSeederUsage(usage);
 				}
-				this.deps.logger.error("reseed.failed", {
+				this.consecutiveFailureCount += 1;
+				const meta = {
 					runId,
 					reason: current.reason,
 					error: (error as Error).message,
 					tokens: usage?.totalTokens,
 					cost: usage?.costTotal,
-				});
+					consecutiveFailures: this.consecutiveFailureCount,
+				};
+				if (this.consecutiveFailureCount >= 3) {
+					this.deps.logger.error("reseed.failed", meta);
+				} else {
+					this.deps.logger.debug("reseed.failed", meta);
+				}
 			}
 
 			if (this.pendingTrigger) {
