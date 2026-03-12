@@ -426,7 +426,7 @@ export async function handleConfigCommand(
 			return;
 		}
 		if (configPath === "schemaVersion" || configPath.startsWith("schemaVersion.")) {
-			ctx.ui.notify("schemaVersion is managed by migrations and cannot be set manually.", "error");
+			ctx.ui.notify("schemaVersion is managed automatically and cannot be set manually.", "error");
 			return;
 		}
 

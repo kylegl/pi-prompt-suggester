@@ -116,7 +116,7 @@ Merge order:
 3. project override
 
 Notes:
-- config now has `schemaVersion`; override files are only rewritten when a schema migration is needed.
+- config now has `schemaVersion`; override files are auto-normalized on load: supported values are kept, unsupported/invalid values are dropped, and missing fields fall back to the current defaults.
 - `inference.* = session-default` means “use current pi session model/thinking”.
 - `feedback.*` controls reject+hint memory and hinted suggestion length.
 - `/suggester model ...` and `/suggester thinking ...` edit project override (`.pi/suggester/config.json`) and apply immediately (no extension reload).

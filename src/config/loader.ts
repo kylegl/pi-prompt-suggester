@@ -2,9 +2,8 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { migrateOverrideConfig } from "./migrations.js";
 import type { PromptSuggesterConfig } from "./types.js";
-import { validateConfig } from "./schema.js";
+import { normalizeConfig, normalizeOverrideConfig, validateConfig } from "./schema.js";
 
 export interface ConfigLoader {
 	load(): Promise<PromptSuggesterConfig>;
@@ -46,18 +45,18 @@ async function writeJson(filePath: string, value: Record<string, unknown>): Prom
 	await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function readOverrideConfig(filePath: string): Promise<Record<string, unknown> | undefined> {
+async function readOverrideConfig(
+	filePath: string,
+	defaultConfig: PromptSuggesterConfig,
+): Promise<Record<string, unknown> | undefined> {
 	const parsed = await readJsonIfExists(filePath);
 	if (parsed === undefined) return undefined;
-	if (!isObject(parsed)) {
-		throw new Error(`Override config ${filePath} must be a JSON object.`);
-	}
 
-	const migration = migrateOverrideConfig(parsed);
-	if (migration.changed) {
-		await writeJson(filePath, migration.config);
+	const normalized = normalizeOverrideConfig(parsed, defaultConfig);
+	if (normalized.changed) {
+		await writeJson(filePath, normalized.config);
 	}
-	return migration.config;
+	return normalized.config;
 }
 
 async function readRequiredConfig(filePath: string): Promise<PromptSuggesterConfig> {
@@ -101,18 +100,19 @@ export class FileConfigLoader implements ConfigLoader {
 		const userPath = path.join(this.homeDir, ".pi", "suggester", "config.json");
 		const projectPath = path.join(this.cwd, ".pi", "suggester", "config.json");
 
-		const [defaultConfig, userConfig, projectConfig] = await Promise.all([
-			readRequiredConfig(defaultPath),
-			readOverrideConfig(userPath),
-			readOverrideConfig(projectPath),
+		const defaultConfig = await readRequiredConfig(defaultPath);
+		const [userConfig, projectConfig] = await Promise.all([
+			readOverrideConfig(userPath, defaultConfig),
+			readOverrideConfig(projectPath, defaultConfig),
 		]);
 		const merged = deepMerge(deepMerge(defaultConfig, userConfig), projectConfig);
+		const normalized = normalizeConfig(merged, defaultConfig);
 
-		if (!validateConfig(merged)) {
+		if (!validateConfig(normalized.config)) {
 			throw new Error(
-				`Invalid suggester config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`,
+				`Failed to normalize suggester config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`,
 			);
 		}
-		return merged;
+		return normalized.config;
 	}
 }
