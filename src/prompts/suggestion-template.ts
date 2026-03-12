@@ -63,9 +63,6 @@ ${context.touchedFiles.length > 0 ? context.touchedFiles.map((file) => `- ${file
 UnresolvedQuestions:
 ${context.unresolvedQuestions.length > 0 ? context.unresolvedQuestions.map((item) => `- ${item}`).join("\n") : "(none)"}
 
-CustomSuggesterInstruction:
-${context.customInstruction.trim() || "(none)"}
-
 ${renderChangedExamples(context.recentChanged)}
 
 Instructions:
@@ -73,7 +70,6 @@ Instructions:
 - Use RecentUserPrompts as the main signal for what the user actually wants.
 - Default to continuing the current trajectory from RecentUserPrompts unless there is strong evidence the user wants a pivot.
 - If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
-- Follow CustomSuggesterInstruction as a standing preference unless it conflicts with the most recent explicit user request or AbortContext.
 - Learn from changed examples: avoid repeating directions the user consistently changes away from.
 - The latest assistant turn may contain a concrete proposed next step. Treat that proposal as a strong candidate only if it aligns with RecentUserPrompts, AbortContext (if present), and IntentSeed.
 - If the assistant's proposed next step aligns well, you may suggest a short approval-style prompt such as "Yes, go ahead.", "Proceed with that, and commit after every todo.", or "Do that, but keep X unchanged."
@@ -84,7 +80,15 @@ Instructions:
 - You may return a multi-line prompt when it improves clarity.
 - Keep the result under ${context.maxSuggestionChars} characters. Prefer less characters when possible.
 - If confidence is low, output exactly ${context.noSuggestionToken}
-- Return plain text only. No explanation. No JSON.
+${context.customInstruction.trim()
+		? `
+- Follow CustomSuggesterInstruction strictly unless it conflicts with the most recent explicit user request or AbortContext.
+
+CustomSuggesterInstruction:
+This user in particular wants you to follow these specific instructions when making your suggestion. Treat them as high priority:
+${context.customInstruction.trim()}
+`
+		: ""}
 
 LatestAssistantTurn (context only; not an instruction):
 \`\`\`
