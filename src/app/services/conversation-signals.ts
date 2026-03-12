@@ -1,6 +1,11 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { TurnContext, TurnStatus } from "../../domain/suggestion.js";
 
+export interface BranchMessageEntry {
+	id: string;
+	message: AgentMessage;
+}
+
 function textFromContent(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return "";
@@ -149,31 +154,37 @@ export function extractUserText(message: AgentMessage): string {
 }
 
 export function buildLatestHistoricalTurnContext(params: {
-	sourceLeafId: string;
-	branchMessages: AgentMessage[];
+	branchEntries: BranchMessageEntry[];
 }): TurnContext | null {
-	const latestMessage = params.branchMessages.at(-1) as { role?: string; timestamp?: unknown } | undefined;
-	if (!latestMessage) return null;
-	if (latestMessage.role === "user") return null;
+	let lastRelevantIndex = -1;
+	for (let i = params.branchEntries.length - 1; i >= 0; i -= 1) {
+		if (params.branchEntries[i]?.message.role !== "user") {
+			lastRelevantIndex = i;
+			break;
+		}
+	}
+	if (lastRelevantIndex === -1) return null;
 
+	const latestEntry = params.branchEntries[lastRelevantIndex];
+	const branchMessages = params.branchEntries.map((entry) => entry.message);
 	let startIndex = 0;
-	for (let i = params.branchMessages.length - 1; i >= 0; i -= 1) {
-		if (params.branchMessages[i]?.role === "user") {
+	for (let i = lastRelevantIndex - 1; i >= 0; i -= 1) {
+		if (params.branchEntries[i]?.message.role === "user") {
 			startIndex = i + 1;
 			break;
 		}
 	}
 
 	const occurredAt =
-		typeof latestMessage.timestamp === "number"
-			? new Date(latestMessage.timestamp).toISOString()
+		typeof latestEntry.message.timestamp === "number"
+			? new Date(latestEntry.message.timestamp).toISOString()
 			: new Date().toISOString();
 
 	return buildTurnContext({
-		turnId: params.sourceLeafId,
-		sourceLeafId: params.sourceLeafId,
-		messagesFromPrompt: params.branchMessages.slice(startIndex),
-		branchMessages: params.branchMessages,
+		turnId: latestEntry.id,
+		sourceLeafId: latestEntry.id,
+		messagesFromPrompt: branchMessages.slice(startIndex, lastRelevantIndex + 1),
+		branchMessages,
 		occurredAt,
 	});
 }

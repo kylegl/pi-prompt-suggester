@@ -18,7 +18,18 @@ async function handleHintBasedRegeneration(
 	composition: AppComposition,
 	includeRejectedSuggestionText: boolean,
 ): Promise<void> {
-	const turn = composition.runtimeRef.getLastTurnContext();
+	let turn = composition.runtimeRef.getLastTurnContext();
+	if (!turn) {
+		const branchEntries = ctx.sessionManager
+			.getBranch()
+			.filter((entry): entry is ReturnType<typeof ctx.sessionManager.getBranch>[number] & { type: "message" } =>
+				entry.type === "message"
+			);
+		turn = buildLatestHistoricalTurnContext({ branchEntries }) ?? undefined;
+		if (turn) {
+			composition.runtimeRef.setLastTurnContext(turn);
+		}
+	}
 	if (!turn) {
 		ctx.ui.notify("No recent turn context available yet. Run after at least one assistant completion.", "warning");
 		return;
@@ -156,14 +167,12 @@ export default function suggester(pi: ExtensionAPI) {
 				return;
 			}
 
-			const branchEntries = ctx.sessionManager.getBranch();
-			const branchMessages = branchEntries
-				.filter((entry): entry is typeof branchEntries[number] & { type: "message" } => entry.type === "message")
-				.map((entry) => entry.message);
-			const historicalTurn = buildLatestHistoricalTurnContext({
-				sourceLeafId,
-				branchMessages,
-			});
+			const branchEntries = ctx.sessionManager
+				.getBranch()
+				.filter((entry): entry is ReturnType<typeof ctx.sessionManager.getBranch>[number] & { type: "message" } =>
+					entry.type === "message"
+				);
+			const historicalTurn = buildLatestHistoricalTurnContext({ branchEntries });
 			if (!historicalTurn) return;
 
 			composition.runtimeRef.markBootstrappedLeafId(sourceLeafId);
