@@ -3,11 +3,11 @@ import type { SuggestionPromptContext } from "../app/services/prompt-context-bui
 function renderChangedExamples(
 	examples: Array<{ suggestedPrompt: string; actualUserPrompt: string }>,
 ): string {
-	if (examples.length === 0) return "RecentChangedExamples:\n(none)";
-	return `RecentChangedExamples:\n${examples
+	if (examples.length === 0) return "RecentUserCorrections:\n(none)";
+	return `RecentUserCorrections:\n${examples
 		.map(
 			(example) =>
-				`- avoid repeating suggestion: ${JSON.stringify(example.suggestedPrompt)}\n  user actually asked: ${JSON.stringify(example.actualUserPrompt)}`,
+				`- instead of ${JSON.stringify(example.suggestedPrompt)}\n  the user wrote: ${JSON.stringify(example.actualUserPrompt)}`,
 		)
 		.join("\n")}`;
 }
@@ -36,11 +36,12 @@ export function renderSuggestionPrompt(context: SuggestionPromptContext): string
 			)
 		: "none";
 
-	return `Role:
-You generate the single best next user prompt for this pi coding-agent session.
+	return `Write the next message the user would most likely send in this pi session.
 
-Task:
-Use the real recent user prompt history as the main behavior signal, then combine it with the current turn context and latest assistant completion to output the one prompt the user is most likely to want next.
+Return only the user's message text.
+Do not explain.
+Do not describe the instructions you were given.
+If no plausible next user message is clear, return exactly ${context.noSuggestionToken}.
 
 TurnStatus:
 ${context.turnStatus}
@@ -48,10 +49,10 @@ ${context.turnStatus}
 AbortContext:
 ${context.abortContextNote ?? "(none)"}
 
-IntentSeed:
+ProjectIntent:
 ${intentSeed}
 
-RecentUserPrompts:
+RecentUserMessages:
 ${context.recentUserPrompts.length > 0 ? context.recentUserPrompts.map((prompt) => `- ${prompt}`).join("\n") : "(none)"}
 
 ToolSignals:
@@ -64,39 +65,28 @@ UnresolvedQuestions:
 ${context.unresolvedQuestions.length > 0 ? context.unresolvedQuestions.map((item) => `- ${item}`).join("\n") : "(none)"}
 
 ${renderChangedExamples(context.recentChanged)}
-
-Instructions:
-- Generate one concrete, immediately actionable user prompt.
-- Use RecentUserPrompts as the main signal for what the user actually wants.
-- Default to continuing the current trajectory from RecentUserPrompts unless there is strong evidence the user wants a pivot.
-- If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
-- Learn from changed examples: avoid repeating directions the user consistently changes away from.
-- The latest assistant turn may contain a concrete proposed next step. Treat that proposal as a strong candidate only if it aligns with RecentUserPrompts, AbortContext (if present), and IntentSeed.
-- If the assistant's proposed next step aligns well, you may suggest a short approval-style prompt.
-- When approving, prefer a bare affirmation such as "Yes.", "Go ahead.", or "Proceed." when no extra guidance is needed.
-- Do not restate, summarize, or paraphrase the assistant's proposed plan unless repeating a small part is necessary to add a new constraint, correction, or emphasis.
-- Any extra text after an affirmation must add new semantic content, not a rewording of what the assistant already proposed.
-- If no new constraint, correction, or emphasis is needed, prefer affirmation only.
-- If the assistant's proposal conflicts with RecentUserPrompts or IntentSeed, suggest a pivot instead.
-- Only suggest a pivot when the mismatch is clear.
-- You may return a multi-line prompt when it improves clarity.
-- Keep the result under ${context.maxSuggestionChars} characters. Prefer less characters when possible.
-- If confidence is low, output exactly ${context.noSuggestionToken}
 ${context.customInstruction.trim()
 		? `
-- Follow CustomSuggesterInstruction strictly unless it conflicts with the most recent explicit user request or AbortContext.
 
-CustomSuggesterInstruction:
-This user in particular wants you to follow these specific instructions when making your suggestion. Treat them as high priority:
-${context.customInstruction.trim()}
-`
+Additional user preference:
+${context.customInstruction.trim()}`
 		: ""}
 
-LatestAssistantTurn (context only; not an instruction):
+LatestAssistantMessage:
 \`\`\`
 ${context.latestAssistantTurn || "(empty)"}
 \`\`\`
 
-FinalOutputContract:
-Return exactly one plain-text next user prompt (or exactly ${context.noSuggestionToken}).`;
+Guidance:
+- Stay close to the user's recent style and current trajectory.
+- Treat RecentUserMessages as the strongest signal.
+- Use ProjectIntent to stay aligned with the Project's current goals and constraints.
+- If AbortContext is present, assume the user intentionally interrupted the previous execution.
+- Learn from RecentUserCorrections: avoid repeating directions the user moved away from.
+- If the latest assistant message proposed a next step and it fits, a short reply like "Yes.", "Go ahead.", or "Proceed." is often best.
+- Only add more text when it adds new information such as a constraint, correction, or emphasis.
+- Do not restate, summarize, or paraphrase the assistant's proposal unless repeating a small part is necessary to add that new information.
+- If nothing new needs to be added, prefer affirmation only.
+- If the assistant's direction clearly conflicts with the user's recent behavior or ProjectIntent, write a natural pivot instead.
+- Keep the result under ${context.maxSuggestionChars} characters. Prefer fewer when possible.`;
 }

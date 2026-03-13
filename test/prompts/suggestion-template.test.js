@@ -17,25 +17,24 @@ const baseContext = {
 	customInstruction: "",
 };
 
-test("renderSuggestionPrompt omits custom instruction block when blank", () => {
+test("renderSuggestionPrompt omits preference block when blank", () => {
 	const prompt = renderSuggestionPrompt(baseContext);
-	assert.equal(prompt.includes("CustomSuggesterInstruction:"), false);
+	assert.equal(prompt.includes("Additional user preference:"), false);
 });
 
-test("renderSuggestionPrompt includes semantic-restatement guardrails", () => {
+test("renderSuggestionPrompt uses low-meta next-user-message framing", () => {
 	const prompt = renderSuggestionPrompt(baseContext);
-	assert.match(prompt, /prefer a bare affirmation/i);
-	assert.match(prompt, /must add new semantic content/i);
+	assert.match(prompt, /Write the next message the user would most likely send/i);
+	assert.match(prompt, /Do not describe the instructions you were given/i);
 	assert.match(prompt, /prefer affirmation only/i);
 });
 
-test("renderSuggestionPrompt includes labeled custom instruction block when present", () => {
+test("renderSuggestionPrompt includes quiet preference block when present", () => {
 	const prompt = renderSuggestionPrompt({
 		...baseContext,
 		customInstruction: "Keep replies extremely terse.",
 	});
-	assert.match(prompt, /Follow CustomSuggesterInstruction strictly/);
-	assert.match(prompt, /CustomSuggesterInstruction:/);
-	assert.match(prompt, /Treat them as high priority/);
+	assert.match(prompt, /Additional user preference:/);
+	assert.doesNotMatch(prompt, /CustomSuggesterInstruction:/);
 	assert.match(prompt, /Keep replies extremely terse\./);
 });
