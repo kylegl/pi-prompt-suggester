@@ -2,82 +2,44 @@
 
 [npm package](https://www.npmjs.com/package/@guwidoe/pi-prompt-suggester)
 
-A pi extension that suggests the user's likely next prompt after each assistant completion.
+`pi-prompt-suggester` suggests the user's likely next prompt after each assistant completion.
 
-## Core idea
-
-Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
-
-1. **Seeding pass (meta-meta prompt, infrequent):**
-   - Explore repository intent from vision/docs/code signals
-   - Produce a compact, reusable `intent seed`
-   - Recompute when important files or seed policy versions change
-
-2. **Suggestion pass (meta prompt, frequent):**
-   - Use recent conversation trajectory + latest assistant completion + `intent seed`
-   - Generate a high-quality next-prompt suggestion
-   - Render as ghost text when editor state is compatible
+It uses recent conversation context plus a lightweight project intent seed so suggestions stay aligned with what the user has been doing in the current repo.
 
 ## Highlights
 
-- persistent custom suggester instruction you can edit in the TUI via `/suggesterSettings`
-- project- or user-scoped suggester behavior overrides
-- repo-aware suggestions grounded in a reusable intent seed
-
-## Current implementation
-
-Implemented end-to-end:
-- async, non-blocking seed generation and reseeding
-- seed persistence in `.pi/suggester/seed.json`
-- session/branch-aware suggester state in extension-owned files under `.pi/suggester/sessions/` (not Pi session JSONL)
-- one-time legacy migration from old `suggester-state` / `suggester-usage` Pi custom entries, then ignore-old-entries behavior
-- `agent_end`-driven prompt suggestion generation
-- fast-path `continue` for non-success completions (`error` and `aborted`) when enabled
-- ghost-only suggestion display with guarded editor compatibility checks (the suggestion itself is never rendered in the widget)
-- steering capture from the next real user input
-- persistent observability log in `.pi/suggester/logs/events.ndjson`
-- separate usage accounting for suggester + seeder model calls (with combined totals in `/suggester status`)
-- session-persistent usage ledger so totals survive reload/resume
-- `/suggester status`, `/suggester reseed`
-- `/suggester model ...`, `/suggester thinking ...`, `/suggester instruction ...`, `/suggester seed-trace [limit]`
-- persistent custom suggester instruction editable from `/suggesterSettings`
-
-## Key files
-
-- [`vision.md`](./vision.md)
-- [`docs/architecture.md`](./docs/architecture.md)
-- [`docs/meta-prompts.md`](./docs/meta-prompts.md)
-- [`docs/architecture-decisions.md`](./docs/architecture-decisions.md)
-- [`docs/roadmap.md`](./docs/roadmap.md)
-- [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json) ← single source of truth for the base config
+- next-prompt suggestions as ghost text in the editor
+- repo-aware suggestions grounded in project intent
+- persistent custom instruction you can edit in the TUI
+- project- or user-scoped behavior overrides
 
 ## Install
 
-### Install from npm (recommended)
+### Install from npm
 
-Global install (all projects):
+Global install:
 
 ```bash
 pi install npm:@guwidoe/pi-prompt-suggester
 ```
 
-Project-local install (current repo only):
+Project-local install:
 
 ```bash
 pi install -l npm:@guwidoe/pi-prompt-suggester
 ```
 
-Pin a specific version if needed:
+Pin a version if needed:
 
 ```bash
-pi install npm:@guwidoe/pi-prompt-suggester@0.1.14
+pi install npm:@guwidoe/pi-prompt-suggester@0.1.30
 ```
 
 After install, restart `pi` or run `/reload`.
 
 ### Manual settings.json entry
 
-Add to `packages` in `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (project):
+Add to `packages` in `~/.pi/agent/settings.json` or `.pi/settings.json`:
 
 ```json
 {
@@ -89,65 +51,67 @@ Add to `packages` in `~/.pi/agent/settings.json` (global) or `.pi/settings.json`
 
 ## Usage
 
-### Local development usage
-- direct load for testing: `pi -e ./src/index.ts`
-- project-local extension file in `.pi/extensions/` that re-exports `src/index.ts`
+### Main entrypoint
 
-### Main command
-All controls are under `/suggester`.
+Use:
 
-- `/suggester` or `/suggester status` — current seed/status, model/thinking overrides, and usage breakdown (suggester/seeder/combined)
-- `/suggester reseed` — trigger async reseed
-- `/suggester model [show|set|clear] <seeder|suggester> [provider/model|session-default]`
-- `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh|session-default]`
-- `/suggester config [show|set [project|user] <path> <value>|reset [project|user|all]]` — inspect, set, or reset overrides
-- `/suggester instruction [show|set [project|user]|clear [project|user]]` — inspect or edit the persistent custom suggester instruction
-- `/suggesterSettings` — interactive TUI settings menu for common suggester options, including the custom instruction editor
-- `/suggester seed-trace [limit]` — show latest seeder run trace from persistent logs
+- `/suggesterSettings`
 
-### Custom instruction
-- `/suggester instruction show` — inspect the effective custom suggester instruction
-- `/suggester instruction set [project|user]` — open a multiline editor for the persistent instruction
-- `/suggester instruction clear [project|user]` — clear it
-- `/suggesterSettings` — includes a TUI entry for editing the custom instruction
+This is the main UI for normal users. It lets you:
+- edit the custom instruction
+- choose custom suggester/seeder models
+- choose custom suggester/seeder thinking levels
+- customize the maximum suggested-prompt length
+- tune common behavior settings
+- reset overrides
 
-### Config
-Base config:
-- `config/prompt-suggester.config.json`
+### Everyday behavior
 
-Optional overrides:
+- after an assistant completion, the extension may suggest the next user prompt
+- when the editor is empty and the suggestion is compatible, it appears as ghost text
+- press `Space` on an empty editor to accept the full suggestion
+
+### Common commands
+
+- `/suggesterSettings` — main settings UI
+- `/suggester` or `/suggester status` — inspect current status
+- `/suggester reseed` — refresh project intent in the background
+
+### Advanced commands
+
+Most users do not need these, but they are available:
+
+- `/suggester instruction ...`
+- `/suggester model ...`
+- `/suggester thinking ...`
+- `/suggester config ...`
+- `/suggester seed-trace ...`
+
+## Configuration
+
+The most useful settings are the custom instruction, custom suggester/seeder models, custom suggester/seeder thinking levels, and the maximum suggested-prompt length.
+
+You can edit them via:
+- `/suggesterSettings`
+
+Or:
+- `/suggester instruction set [project|user]`
+- `/suggester model ...`
+- `/suggester thinking ...`
+- `/suggester config set suggestion.maxSuggestionChars <number>`
+
+Overrides can be stored at:
 - user: `~/.pi/suggester/config.json`
 - project: `.pi/suggester/config.json`
 
-Merge order:
-1. base config (repo file)
-2. user override
-3. project override
+If you want the full config surface, see:
+- [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json)
 
-Notes:
-- config includes `schemaVersion`; override files are auto-normalized on load: supported values are kept, unsupported/invalid values are dropped, and missing fields fall back to current defaults.
-- `inference.* = session-default` means “use the current pi session model/thinking”.
-- `suggestion.customInstruction` is a persistent prompt-engineering hook for the suggester and can be edited via `/suggesterSettings` or `/suggester instruction set [project|user]`.
-- `/suggester model ...` and `/suggester thinking ...` edit project override (`.pi/suggester/config.json`) and apply immediately (no extension reload).
-- `/suggester config set [project|user] <path> <value>` writes to the selected override file and applies immediately.
-- `/suggester config set suggestion.maxSuggestionChars 200` updates prompt length in project override.
-- `/suggesterSettings` provides an interactive top-level TUI menu so users do not need to remember the config commands.
-- `/suggester config reset [project|user|all]` deletes override files so behavior returns to defaults.
+## Docs
 
-### Runtime artifacts
-- seed: `.pi/suggester/seed.json`
-- per-session state: `.pi/suggester/sessions/<session-id>/`
-- logs: `.pi/suggester/logs/events.ndjson`
+For implementation details, architecture, and maintainer-oriented notes, see:
 
-Legacy note:
-- older versions wrote `suggester-state` / `suggester-usage` custom entries into Pi session JSONL
-- current versions import those legacy entries once into extension-owned storage and ignore the old Pi session entries afterwards
-
-### Behavior summary
-- Suggestion generation runs on `agent_end`
-- Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
-- Suggestions are ghosted in the editor when safe (including multiline only when the editor is empty)
-- Press `Space` on an empty editor to accept the full ghost suggestion
-- If editor state is incompatible, the suggestion is hidden; it is never rendered as suggestion text in the below-editor widget
-- `/suggester status` reports separate suggester usage, seeder usage, and combined totals (session-persistent across reload/resume)
-- The stock pi footer is preserved; compact suggester info uses status lines, and richer suggester state/warnings use the below-editor widget
+- [`docs/architecture.md`](./docs/architecture.md)
+- [`docs/architecture-decisions.md`](./docs/architecture-decisions.md)
+- [`docs/meta-prompts.md`](./docs/meta-prompts.md)
+- [`docs/roadmap.md`](./docs/roadmap.md)
