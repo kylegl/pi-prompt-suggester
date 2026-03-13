@@ -1,7 +1,5 @@
 # pi-prompt-suggester
 
-[npm package](https://www.npmjs.com/package/@guwidoe/pi-prompt-suggester)
-
 `pi-prompt-suggester` suggests the user's likely next prompt after each assistant completion.
 
 It uses recent conversation context plus a lightweight project intent seed so suggestions stay aligned with what the user has been doing in the current repo.
@@ -17,7 +15,7 @@ It uses recent conversation context plus a lightweight project intent seed so su
 
 ## Install
 
-### Install from npm
+[npm package](https://www.npmjs.com/package/@guwidoe/pi-prompt-suggester)
 
 Global install:
 
