@@ -8,6 +8,7 @@ import type { ModelClient, ModelInvocationSettings } from "../../app/ports/model
 import type { Logger } from "../../app/ports/logger.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
+import { accumulateUsage, createEmptyUsage } from "../../domain/usage.js";
 import {
 	REQUIRED_SEED_CATEGORIES,
 	type SeedArtifact,
@@ -51,29 +52,6 @@ class SeederRunError extends Error {
 	) {
 		super(message);
 	}
-}
-
-function createEmptyUsage(): SuggestionUsage {
-	return {
-		inputTokens: 0,
-		outputTokens: 0,
-		cacheReadTokens: 0,
-		cacheWriteTokens: 0,
-		totalTokens: 0,
-		costTotal: 0,
-	};
-}
-
-function accumulateUsage(current: SuggestionUsage, usage: SuggestionUsage | undefined): SuggestionUsage {
-	if (!usage) return current;
-	return {
-		inputTokens: current.inputTokens + usage.inputTokens,
-		outputTokens: current.outputTokens + usage.outputTokens,
-		cacheReadTokens: current.cacheReadTokens + usage.cacheReadTokens,
-		cacheWriteTokens: current.cacheWriteTokens + usage.cacheWriteTokens,
-		totalTokens: current.totalTokens + usage.totalTokens,
-		costTotal: current.costTotal + usage.costTotal,
-	};
 }
 
 function truncate(value: string, maxChars: number): string {

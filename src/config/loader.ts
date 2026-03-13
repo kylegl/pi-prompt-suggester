@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readJsonIfExists, writeJson } from "../infra/storage/json-file.js";
 import type { PromptSuggesterConfig } from "./types.js";
 import { normalizeConfig, normalizeOverrideConfig, validateConfig } from "./schema.js";
 
@@ -30,26 +31,16 @@ function deepMerge<T>(base: T, override: unknown): T {
 	return result as T;
 }
 
-async function readJsonIfExists(filePath: string): Promise<unknown | undefined> {
-	try {
-		const raw = await fs.readFile(filePath, "utf8");
-		return JSON.parse(raw);
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw new Error(`Failed to load config ${filePath}: ${(error as Error).message}`);
-	}
-}
-
-async function writeJson(filePath: string, value: Record<string, unknown>): Promise<void> {
-	await fs.mkdir(path.dirname(filePath), { recursive: true });
-	await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
 async function readOverrideConfig(
 	filePath: string,
 	defaultConfig: PromptSuggesterConfig,
 ): Promise<Record<string, unknown> | undefined> {
-	const parsed = await readJsonIfExists(filePath);
+	let parsed: unknown;
+	try {
+		parsed = await readJsonIfExists(filePath);
+	} catch (error) {
+		throw new Error(`Failed to load config ${filePath}: ${(error as Error).message}`);
+	}
 	if (parsed === undefined) return undefined;
 
 	const normalized = normalizeOverrideConfig(parsed, defaultConfig);

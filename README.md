@@ -16,7 +16,7 @@ Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
 2. **Suggestion pass (meta prompt, frequent):**
    - Use recent conversation trajectory + latest assistant completion + `intent seed`
    - Generate a high-quality next-prompt suggestion
-   - Render as ghost text when editor state is compatible (no widget fallback)
+   - Render as ghost text when editor state is compatible
 
 ## Highlights
 

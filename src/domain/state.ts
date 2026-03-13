@@ -1,5 +1,6 @@
 import type { SteeringEvent } from "./steering.js";
 import type { SuggestionUsage } from "./suggestion.js";
+import { emptyUsageStats } from "./usage.js";
 
 export const CURRENT_RUNTIME_STATE_VERSION = 8;
 
@@ -33,23 +34,7 @@ export interface RuntimeState {
 export const INITIAL_RUNTIME_STATE: RuntimeState = {
 	stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 	steeringHistory: [],
-	suggestionUsage: {
-		calls: 0,
-		inputTokens: 0,
-		outputTokens: 0,
-		cacheReadTokens: 0,
-		cacheWriteTokens: 0,
-		totalTokens: 0,
-		costTotal: 0,
-	},
-	seederUsage: {
-		calls: 0,
-		inputTokens: 0,
-		outputTokens: 0,
-		cacheReadTokens: 0,
-		cacheWriteTokens: 0,
-		totalTokens: 0,
-		costTotal: 0,
-	},
+	suggestionUsage: emptyUsageStats(),
+	seederUsage: emptyUsageStats(),
 	turnsSinceLastStalenessCheck: 0,
 };

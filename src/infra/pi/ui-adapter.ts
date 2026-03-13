@@ -1,28 +1,9 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { wrapTextWithAnsi } from "@mariozechner/pi-tui";
-import type { SuggestionUsageStats } from "../../domain/state.js";
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
-
-export interface UiContextLike {
-	getContext(): ExtensionContext | undefined;
-	getEpoch(): number;
-	getSuggestion(): string | undefined;
-	setSuggestion(text: string | undefined): void;
-	getPanelSuggestionStatus(): string | undefined;
-	setPanelSuggestionStatus(text: string | undefined): void;
-	getPanelLogStatus(): { level: "debug" | "info" | "warn" | "error"; text: string } | undefined;
-	setPanelLogStatus(status: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined): void;
-	getSuggesterModelDisplay(): string | undefined;
-	prefillOnlyWhenEditorEmpty: boolean;
-}
-
-function formatTokens(count: number): string {
-	if (count < 1000) return count.toString();
-	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
-	if (count < 1000000) return `${Math.round(count / 1000)}k`;
-	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
-	return `${Math.round(count / 1000000)}M`;
-}
+import type { SuggestionUsageStats } from "../../domain/state.js";
+import { formatTokens } from "./display.js";
+import type { UiContextLike } from "./ui-context.js";
 
 function formatUsage(
 	usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats },

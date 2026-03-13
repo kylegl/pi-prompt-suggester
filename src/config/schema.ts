@@ -58,12 +58,19 @@ interface SectionNormalizationResult<T> {
 const seedValidators: ValidatorMap<SeedConfig> = {
 	maxDiffChars: isPositiveInteger,
 };
+const seedShape: SeedConfig = { maxDiffChars: 1 };
 
 const reseedValidators: ValidatorMap<ReseedConfig> = {
 	enabled: isBoolean,
 	checkOnSessionStart: isBoolean,
 	checkAfterEveryTurn: isBoolean,
 	turnCheckInterval: isNonNegativeInteger,
+};
+const reseedShape: ReseedConfig = {
+	enabled: true,
+	checkOnSessionStart: true,
+	checkAfterEveryTurn: true,
+	turnCheckInterval: 0,
 };
 
 const suggestionValidators: ValidatorMap<SuggestionConfig> = {
@@ -81,22 +88,45 @@ const suggestionValidators: ValidatorMap<SuggestionConfig> = {
 	maxSuggestionChars: isPositiveInteger,
 	prefillOnlyWhenEditorEmpty: isBoolean,
 };
+const suggestionShape: SuggestionConfig = {
+	noSuggestionToken: "",
+	customInstruction: "",
+	fastPathContinueOnError: true,
+	maxAssistantTurnChars: 1,
+	maxRecentUserPrompts: 1,
+	maxRecentUserPromptChars: 1,
+	maxToolSignals: 1,
+	maxToolSignalChars: 1,
+	maxTouchedFiles: 1,
+	maxUnresolvedQuestions: 1,
+	maxAbortContextChars: 1,
+	maxSuggestionChars: 1,
+	prefillOnlyWhenEditorEmpty: true,
+};
 
 const steeringValidators: ValidatorMap<SteeringConfig> = {
 	historyWindow: isPositiveInteger,
 	acceptedThreshold: (value) => typeof value === "number" && isPositiveNumber(value) && value <= 1,
 	maxChangedExamples: isPositiveInteger,
 };
+const steeringShape: SteeringConfig = { historyWindow: 1, acceptedThreshold: 0.5, maxChangedExamples: 1 };
 
 const loggingValidators: ValidatorMap<LoggingConfig> = {
 	level: isLoggingLevel,
 };
+const loggingShape: LoggingConfig = { level: "info" };
 
 const inferenceValidators: ValidatorMap<InferenceConfig> = {
 	seederModel: isModelSetting,
 	suggesterModel: isModelSetting,
 	seederThinking: isThinkingLevel,
 	suggesterThinking: isThinkingLevel,
+};
+const inferenceShape: InferenceConfig = {
+	seederModel: "session-default",
+	suggesterModel: "session-default",
+	seederThinking: "session-default",
+	suggesterThinking: "session-default",
 };
 
 function normalizeSection<T extends object>(
@@ -155,6 +185,22 @@ function hasUnknownTopLevelKeys(config: Record<string, unknown>, defaults: Promp
 		if (!supportedKeys.has(key)) return true;
 	}
 	return false;
+}
+
+function validateSection<T extends object>(
+	input: unknown,
+	defaults: T,
+	validators: ValidatorMap<T>,
+): input is T {
+	if (!isObject(input)) return false;
+	const supportedKeys = new Set(Object.keys(defaults as Record<string, unknown>));
+	for (const key of Object.keys(input)) {
+		if (!supportedKeys.has(key)) return false;
+	}
+	for (const key of Object.keys(defaults as Record<string, unknown>) as Array<keyof T & string>) {
+		if (!validators[key](input[key])) return false;
+	}
+	return true;
 }
 
 export function normalizeConfig(
@@ -242,40 +288,22 @@ export function normalizeOverrideConfig(
 export function validateConfig(config: unknown): config is PromptSuggesterConfig {
 	if (!isObject(config)) return false;
 	if (!isSchemaVersion(config.schemaVersion)) return false;
-	if (!isObject(config.seed) || !isObject(config.reseed) || !isObject(config.suggestion)) return false;
-	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.inference)) return false;
+	if (hasUnknownTopLevelKeys(config, {
+		schemaVersion: CURRENT_CONFIG_SCHEMA_VERSION,
+		seed: seedShape,
+		reseed: reseedShape,
+		suggestion: suggestionShape,
+		steering: steeringShape,
+		logging: loggingShape,
+		inference: inferenceShape,
+	})) return false;
 
-	const { seed, reseed, suggestion, steering, logging, inference } = config;
-	if (!isPositiveInteger(seed.maxDiffChars)) return false;
-
-	if (!isBoolean(reseed.enabled)) return false;
-	if (!isBoolean(reseed.checkOnSessionStart)) return false;
-	if (!isBoolean(reseed.checkAfterEveryTurn)) return false;
-	if (!isNonNegativeInteger(reseed.turnCheckInterval)) return false;
-
-	if (typeof suggestion.noSuggestionToken !== "string") return false;
-	if (typeof suggestion.customInstruction !== "string") return false;
-	if (!isBoolean(suggestion.fastPathContinueOnError)) return false;
-	if (!isPositiveInteger(suggestion.maxAssistantTurnChars)) return false;
-	if (!isPositiveInteger(suggestion.maxRecentUserPrompts)) return false;
-	if (!isPositiveInteger(suggestion.maxRecentUserPromptChars)) return false;
-	if (!isPositiveInteger(suggestion.maxToolSignals)) return false;
-	if (!isPositiveInteger(suggestion.maxToolSignalChars)) return false;
-	if (!isPositiveInteger(suggestion.maxTouchedFiles)) return false;
-	if (!isPositiveInteger(suggestion.maxUnresolvedQuestions)) return false;
-	if (!isPositiveInteger(suggestion.maxAbortContextChars)) return false;
-	if (!isPositiveInteger(suggestion.maxSuggestionChars)) return false;
-	if (!isBoolean(suggestion.prefillOnlyWhenEditorEmpty)) return false;
-
-	if (!isPositiveInteger(steering.historyWindow)) return false;
-	const acceptedThreshold = steering.acceptedThreshold;
-	if (typeof acceptedThreshold !== "number" || !isPositiveNumber(acceptedThreshold) || acceptedThreshold > 1) return false;
-	if (!isPositiveInteger(steering.maxChangedExamples)) return false;
-
-	if (!isModelSetting(inference.seederModel)) return false;
-	if (!isModelSetting(inference.suggesterModel)) return false;
-	if (!isThinkingLevel(inference.seederThinking)) return false;
-	if (!isThinkingLevel(inference.suggesterThinking)) return false;
-
-	return isLoggingLevel(logging.level);
+	return (
+		validateSection(config.seed, seedShape, seedValidators) &&
+		validateSection(config.reseed, reseedShape, reseedValidators) &&
+		validateSection(config.suggestion, suggestionShape, suggestionValidators) &&
+		validateSection(config.steering, steeringShape, steeringValidators) &&
+		validateSection(config.logging, loggingShape, loggingValidators) &&
+		validateSection(config.inference, inferenceShape, inferenceValidators)
+	);
 }

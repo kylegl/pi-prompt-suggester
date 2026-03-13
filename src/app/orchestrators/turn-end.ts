@@ -1,5 +1,7 @@
-import type { PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
-import type { SuggestionUsage, TurnContext } from "../../domain/suggestion.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
+import { toInvocationThinkingLevel } from "../../config/inference.js";
+import type { TurnContext } from "../../domain/suggestion.js";
+import { addUsageStats } from "../../domain/usage.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
@@ -24,23 +26,6 @@ export interface TurnEndOrchestratorDeps {
 	suggestionSink: SuggestionSink;
 	logger: Logger;
 	checkForStaleness: boolean;
-}
-
-function accumulateUsage(current: SuggestionUsageStats, usage: SuggestionUsage): SuggestionUsageStats {
-	return {
-		calls: current.calls + 1,
-		inputTokens: current.inputTokens + usage.inputTokens,
-		outputTokens: current.outputTokens + usage.outputTokens,
-		cacheReadTokens: current.cacheReadTokens + usage.cacheReadTokens,
-		cacheWriteTokens: current.cacheWriteTokens + usage.cacheWriteTokens,
-		totalTokens: current.totalTokens + usage.totalTokens,
-		costTotal: current.costTotal + usage.costTotal,
-		last: usage,
-	};
-}
-
-function toThinking(value: string): ThinkingLevel | undefined {
-	return value === "session-default" ? undefined : (value as ThinkingLevel);
 }
 
 export class TurnEndOrchestrator {
@@ -90,10 +75,10 @@ export class TurnEndOrchestrator {
 					this.deps.config.inference.suggesterModel === "session-default"
 						? undefined
 						: this.deps.config.inference.suggesterModel,
-				thinkingLevel: toThinking(this.deps.config.inference.suggesterThinking),
+				thinkingLevel: toInvocationThinkingLevel(this.deps.config.inference.suggesterThinking),
 			},
 		);
-		const nextUsage = suggestion.usage ? accumulateUsage(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
+		const nextUsage = suggestion.usage ? addUsageStats(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
 		if (suggestion.usage) {
 			await this.deps.stateStore.recordUsage("suggester", suggestion.usage);
 		}
