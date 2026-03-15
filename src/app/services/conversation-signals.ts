@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { TurnContext, TurnStatus } from "../../domain/suggestion.js";
+import type { SuggestionUsage, TurnContext, TurnStatus } from "../../domain/suggestion.js";
 
 export interface BranchMessageEntry {
 	id: string;
@@ -57,6 +57,26 @@ function extractUnresolvedQuestions(text: string): string[] {
 		.filter((line) => line.endsWith("?"));
 }
 
+function extractUsage(message: AgentMessage): SuggestionUsage | undefined {
+	const usage = (message as AgentMessage & { usage?: unknown }).usage as Partial<{
+		input: number;
+		output: number;
+		cacheRead: number;
+		cacheWrite: number;
+		totalTokens: number;
+		cost: { total?: number };
+	}> | undefined;
+	if (!usage) return undefined;
+	return {
+		inputTokens: Number(usage.input ?? 0),
+		outputTokens: Number(usage.output ?? 0),
+		cacheReadTokens: Number(usage.cacheRead ?? 0),
+		cacheWriteTokens: Number(usage.cacheWrite ?? 0),
+		totalTokens: Number(usage.totalTokens ?? 0),
+		costTotal: Number(usage.cost?.total ?? 0),
+	};
+}
+
 function extractRecentUserPrompts(messages: AgentMessage[]): string[] {
 	return [...messages]
 		.reverse()
@@ -85,6 +105,7 @@ function buildPlaceholderTurnContext(params: {
 			turnId: params.turnId,
 			sourceLeafId: params.sourceLeafId,
 			assistantText,
+			assistantUsage: undefined,
 			status,
 			occurredAt: params.occurredAt,
 			recentUserPrompts,
@@ -101,6 +122,7 @@ function buildPlaceholderTurnContext(params: {
 		turnId: params.turnId,
 		sourceLeafId: params.sourceLeafId,
 		assistantText: "[empty]",
+		assistantUsage: undefined,
 		status: "success",
 		occurredAt: params.occurredAt,
 		recentUserPrompts,
@@ -136,6 +158,7 @@ export function buildTurnContext(params: {
 		turnId: params.turnId,
 		sourceLeafId: params.sourceLeafId,
 		assistantText,
+		assistantUsage: extractUsage(latestMessage),
 		status,
 		occurredAt: params.occurredAt,
 		recentUserPrompts,

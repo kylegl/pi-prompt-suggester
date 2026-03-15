@@ -25,6 +25,7 @@ export interface UsageLedgerEntry {
 export interface PersistedInteractionState {
 	stateVersion: number;
 	lastSuggestion?: RuntimeState["lastSuggestion"];
+	pendingNextTurnObservation?: RuntimeState["pendingNextTurnObservation"];
 	steeringHistory: RuntimeState["steeringHistory"];
 	turnsSinceLastStalenessCheck: number;
 }

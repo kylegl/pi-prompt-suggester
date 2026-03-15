@@ -52,6 +52,7 @@ export function normalizeInteractionState(raw: unknown): PersistedInteractionSta
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
+		pendingNextTurnObservation: latest.pendingNextTurnObservation,
 		steeringHistory: Array.isArray(latest.steeringHistory) ? latest.steeringHistory : [],
 		turnsSinceLastStalenessCheck: Math.max(0, Number(latest.turnsSinceLastStalenessCheck ?? 0)),
 	};
@@ -61,6 +62,7 @@ export function toRuntimeState(interaction: PersistedInteractionState, usage: Su
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: interaction.lastSuggestion,
+		pendingNextTurnObservation: interaction.pendingNextTurnObservation,
 		steeringHistory: interaction.steeringHistory,
 		suggestionUsage: cloneUsageStats(usage.suggester),
 		seederUsage: cloneUsageStats(usage.seeder),
@@ -72,6 +74,7 @@ export function toPersistedInteractionState(state: RuntimeState): PersistedInter
 	return normalizeInteractionState({
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: state.lastSuggestion,
+		pendingNextTurnObservation: state.pendingNextTurnObservation,
 		steeringHistory: state.steeringHistory,
 		turnsSinceLastStalenessCheck: state.turnsSinceLastStalenessCheck,
 	});

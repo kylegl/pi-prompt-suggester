@@ -474,6 +474,7 @@ export class PiModelClient implements ModelClient {
 				context.systemPrompt,
 				settings,
 				context.sessionId,
+				{ suggestionMode: "transcript-cache", transcriptMessageCount: context.transcriptMessageCount },
 			);
 		}
 		return await this.completePrompt(
@@ -486,6 +487,8 @@ export class PiModelClient implements ModelClient {
 			],
 			undefined,
 			settings,
+			undefined,
+			{ suggestionMode: "compact" },
 		);
 	}
 
@@ -494,6 +497,7 @@ export class PiModelClient implements ModelClient {
 		systemPrompt?: string,
 		settings?: ModelInvocationSettings,
 		sessionId?: string,
+		debugMeta?: Record<string, unknown>,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {
@@ -517,6 +521,14 @@ export class PiModelClient implements ModelClient {
 				apiKey,
 				reasoning: settings?.thinkingLevel,
 				sessionId,
+				onPayload: async (payload) => {
+					this.logger?.debug("suggestion.provider.payload", {
+						...debugMeta,
+						sessionId,
+						payloadPreview: preview(JSON.stringify(payload), 1000),
+					});
+					return undefined;
+				},
 			},
 		);
 		const text = extractText(response.content);

@@ -38,9 +38,30 @@ export class TurnEndOrchestrator {
 			turnId: turn.turnId,
 			status: turn.status,
 			generationId,
+			assistantCacheReadTokens: turn.assistantUsage?.cacheReadTokens,
+			assistantCacheWriteTokens: turn.assistantUsage?.cacheWriteTokens,
 		});
 
 		const [seed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
+		const activeVariantName = this.deps.variantStore?.getActiveVariantName() ?? "default";
+		if (state.pendingNextTurnObservation && turn.assistantUsage) {
+			this.deps.logger.info("suggestion.next_turn.cache_observed", {
+				suggestionTurnId: state.pendingNextTurnObservation.suggestionTurnId,
+				suggestionShownAt: state.pendingNextTurnObservation.suggestionShownAt,
+				userPromptSubmittedAt: state.pendingNextTurnObservation.userPromptSubmittedAt,
+				nextAssistantTurnId: turn.turnId,
+				variantName: state.pendingNextTurnObservation.variantName,
+				strategy: state.pendingNextTurnObservation.strategy,
+				requestedStrategy: state.pendingNextTurnObservation.requestedStrategy,
+				inputTokens: turn.assistantUsage.inputTokens,
+				outputTokens: turn.assistantUsage.outputTokens,
+				cacheReadTokens: turn.assistantUsage.cacheReadTokens,
+				cacheWriteTokens: turn.assistantUsage.cacheWriteTokens,
+				totalTokens: turn.assistantUsage.totalTokens,
+				cost: turn.assistantUsage.costTotal,
+			});
+		}
+
 		let turnsSinceLastStalenessCheck = state.turnsSinceLastStalenessCheck;
 		if (this.deps.checkForStaleness && this.deps.config.reseed.checkAfterEveryTurn) {
 			const interval = this.deps.config.reseed.turnCheckInterval;
@@ -69,6 +90,7 @@ export class TurnEndOrchestrator {
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
 		};
 		const effectiveConfig = this.deps.variantStore?.getEffectiveConfig(this.deps.config) ?? this.deps.config;
+		const startedAt = Date.now();
 		const suggestion = await this.deps.suggestionEngine.suggest(
 			turn,
 			seed,
@@ -82,6 +104,12 @@ export class TurnEndOrchestrator {
 			},
 			effectiveConfig,
 		);
+		const latencyMs = Date.now() - startedAt;
+		const metadata = {
+			...suggestion.metadata,
+			variantName: activeVariantName,
+			latencyMs,
+		};
 		const nextUsage = suggestion.usage ? addUsageStats(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
 		if (suggestion.usage) {
 			await this.deps.stateStore.recordUsage("suggester", suggestion.usage);
@@ -91,7 +119,17 @@ export class TurnEndOrchestrator {
 			this.deps.logger.info("suggestion.none", {
 				turnId: turn.turnId,
 				status: turn.status,
-				tokens: suggestion.usage?.totalTokens,
+				variantName: activeVariantName,
+				requestedStrategy: metadata.requestedStrategy,
+				strategy: metadata.strategy,
+				fallbackReason: metadata.fallbackReason,
+				sampledOut: metadata.sampledOut,
+				latencyMs,
+				inputTokens: suggestion.usage?.inputTokens,
+				outputTokens: suggestion.usage?.outputTokens,
+				cacheReadTokens: suggestion.usage?.cacheReadTokens,
+				cacheWriteTokens: suggestion.usage?.cacheWriteTokens,
+				totalTokens: suggestion.usage?.totalTokens,
 				cost: suggestion.usage?.costTotal,
 			});
 			await this.deps.suggestionSink.clearSuggestion({ generationId });
@@ -99,6 +137,7 @@ export class TurnEndOrchestrator {
 			await this.deps.stateStore.save({
 				...state,
 				lastSuggestion: undefined,
+				pendingNextTurnObservation: undefined,
 				suggestionUsage: nextUsage,
 				turnsSinceLastStalenessCheck,
 			});
@@ -114,13 +153,31 @@ export class TurnEndOrchestrator {
 				shownAt: turn.occurredAt,
 				turnId: turn.turnId,
 				sourceLeafId: turn.sourceLeafId,
+				variantName: activeVariantName,
+				strategy: metadata.strategy,
+				requestedStrategy: metadata.requestedStrategy,
 			},
+			pendingNextTurnObservation: undefined,
 			suggestionUsage: nextUsage,
 			turnsSinceLastStalenessCheck,
 		});
 		this.deps.logger.info("suggestion.generated", {
 			turnId: turn.turnId,
-			tokens: suggestion.usage?.totalTokens,
+			variantName: activeVariantName,
+			requestedStrategy: metadata.requestedStrategy,
+			strategy: metadata.strategy,
+			fallbackReason: metadata.fallbackReason,
+			sampledOut: metadata.sampledOut,
+			transcriptMessageCount: metadata.transcriptMessageCount,
+			transcriptCharCount: metadata.transcriptCharCount,
+			contextUsagePercent: metadata.contextUsagePercent,
+			latencyMs,
+			suggestionChars: suggestion.text.length,
+			inputTokens: suggestion.usage?.inputTokens,
+			outputTokens: suggestion.usage?.outputTokens,
+			cacheReadTokens: suggestion.usage?.cacheReadTokens,
+			cacheWriteTokens: suggestion.usage?.cacheWriteTokens,
+			totalTokens: suggestion.usage?.totalTokens,
 			cost: suggestion.usage?.costTotal,
 			preview: suggestion.text.slice(0, 200),
 		});

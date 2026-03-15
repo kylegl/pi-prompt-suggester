@@ -29,6 +29,7 @@ export class UserSubmitOrchestrator {
 		if (!state.lastSuggestion) return;
 		if (!ctx.userPrompt.trim()) return;
 
+		const nowIso = this.deps.clock.nowIso();
 		const result = this.deps.steeringClassifier.classify(state.lastSuggestion.text, ctx.userPrompt);
 		const steeringHistory = [
 			...state.steeringHistory,
@@ -38,18 +39,29 @@ export class UserSubmitOrchestrator {
 				actualUserPrompt: ctx.userPrompt,
 				classification: result.classification,
 				similarity: result.similarity,
-				timestamp: this.deps.clock.nowIso(),
+				timestamp: nowIso,
 			},
 		].slice(-this.deps.historyWindow);
 
 		await this.deps.stateStore.save({
 			...state,
 			lastSuggestion: undefined,
+			pendingNextTurnObservation: {
+				suggestionTurnId: state.lastSuggestion.turnId,
+				suggestionShownAt: state.lastSuggestion.shownAt,
+				userPromptSubmittedAt: nowIso,
+				variantName: state.lastSuggestion.variantName,
+				strategy: state.lastSuggestion.strategy,
+				requestedStrategy: state.lastSuggestion.requestedStrategy,
+			},
 			steeringHistory,
 		});
 		this.deps.logger.info("steering.recorded", {
 			classification: result.classification,
 			similarity: result.similarity,
+			variantName: state.lastSuggestion.variantName,
+			strategy: state.lastSuggestion.strategy,
+			requestedStrategy: state.lastSuggestion.requestedStrategy,
 		});
 	}
 }

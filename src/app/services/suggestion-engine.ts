@@ -1,6 +1,6 @@
 import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { SeedArtifact } from "../../domain/seed.js";
-import type { SuggestionResult, TurnContext } from "../../domain/suggestion.js";
+import type { SuggestionMetadata, SuggestionResult, SuggestionUsage, TurnContext } from "../../domain/suggestion.js";
 import type { ModelInvocationSettings } from "../ports/model-client.js";
 import type { SteeringSlice } from "../../domain/steering.js";
 import type { ModelClient } from "../ports/model-client.js";
@@ -26,6 +26,12 @@ function stableSamplePercent(seed: string): number {
 	return hash % 100;
 }
 
+interface GeneratedSuggestion {
+	text: string;
+	usage?: SuggestionUsage;
+	metadata: SuggestionMetadata;
+}
+
 export interface SuggestionEngineDeps {
 	config: PromptSuggesterConfig;
 	modelClient: ModelClient;
@@ -48,6 +54,11 @@ export class SuggestionEngine {
 			return {
 				kind: "suggestion",
 				text: "continue",
+				metadata: {
+					requestedStrategy: config.suggestion.strategy,
+					strategy: "compact",
+					fallbackReason: "fast_path_continue",
+				},
 			};
 		}
 
@@ -58,6 +69,7 @@ export class SuggestionEngine {
 				kind: "no_suggestion",
 				text: config.suggestion.noSuggestionToken,
 				usage: raw.usage,
+				metadata: raw.metadata,
 			};
 		}
 
@@ -65,6 +77,7 @@ export class SuggestionEngine {
 			kind: "suggestion",
 			text: normalized,
 			usage: raw.usage,
+			metadata: raw.metadata,
 		};
 	}
 
@@ -74,29 +87,94 @@ export class SuggestionEngine {
 		steering: SteeringSlice,
 		settings: ModelInvocationSettings | undefined,
 		config: PromptSuggesterConfig,
-	) {
-		if (config.suggestion.strategy === "transcript-cache" && this.deps.transcriptPromptContextBuilder) {
+	): Promise<GeneratedSuggestion> {
+		const requestedStrategy = config.suggestion.strategy;
+		if (requestedStrategy === "transcript-cache" && this.deps.transcriptPromptContextBuilder) {
 			const sampledOut =
 				config.suggestion.transcriptRolloutPercent < 100 &&
 				stableSamplePercent(turn.turnId || turn.sourceLeafId) >= config.suggestion.transcriptRolloutPercent;
-			if (!sampledOut) {
-				try {
-					const transcriptContext = this.deps.transcriptPromptContextBuilder.build(seed, steering, config);
-					const overContextLimit =
-						typeof transcriptContext.contextUsagePercent === "number" &&
-						transcriptContext.contextUsagePercent > config.suggestion.transcriptMaxContextPercent;
-					const overMessageLimit = transcriptContext.transcriptMessageCount > config.suggestion.transcriptMaxMessages;
-					const overCharLimit = transcriptContext.transcriptCharCount > config.suggestion.transcriptMaxChars;
-					if (!overContextLimit && !overMessageLimit && !overCharLimit) {
-						return await this.deps.modelClient.generateSuggestion(transcriptContext, settings);
-					}
-				} catch {
-					// Fall back to the compact strategy below.
+			if (sampledOut) {
+				return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+					requestedStrategy,
+					sampledOut: true,
+					fallbackReason: "transcript_rollout_skip",
+				});
+			}
+
+			try {
+				const transcriptContext = this.deps.transcriptPromptContextBuilder.build(seed, steering, config);
+				const overContextLimit =
+					typeof transcriptContext.contextUsagePercent === "number" &&
+					transcriptContext.contextUsagePercent > config.suggestion.transcriptMaxContextPercent;
+				if (overContextLimit) {
+					return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+						requestedStrategy,
+						fallbackReason: "transcript_context_limit",
+						contextUsagePercent: transcriptContext.contextUsagePercent,
+						transcriptMessageCount: transcriptContext.transcriptMessageCount,
+						transcriptCharCount: transcriptContext.transcriptCharCount,
+					});
 				}
+				if (transcriptContext.transcriptMessageCount > config.suggestion.transcriptMaxMessages) {
+					return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+						requestedStrategy,
+						fallbackReason: "transcript_message_limit",
+						contextUsagePercent: transcriptContext.contextUsagePercent,
+						transcriptMessageCount: transcriptContext.transcriptMessageCount,
+						transcriptCharCount: transcriptContext.transcriptCharCount,
+					});
+				}
+				if (transcriptContext.transcriptCharCount > config.suggestion.transcriptMaxChars) {
+					return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+						requestedStrategy,
+						fallbackReason: "transcript_char_limit",
+						contextUsagePercent: transcriptContext.contextUsagePercent,
+						transcriptMessageCount: transcriptContext.transcriptMessageCount,
+						transcriptCharCount: transcriptContext.transcriptCharCount,
+					});
+				}
+				const result = await this.deps.modelClient.generateSuggestion(transcriptContext, settings);
+				return {
+					text: result.text,
+					usage: result.usage,
+					metadata: {
+						requestedStrategy,
+						strategy: "transcript-cache",
+						contextUsagePercent: transcriptContext.contextUsagePercent,
+						transcriptMessageCount: transcriptContext.transcriptMessageCount,
+						transcriptCharCount: transcriptContext.transcriptCharCount,
+					},
+				};
+			} catch (error) {
+				return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+					requestedStrategy,
+					fallbackReason: `transcript_error:${(error as Error).message}`,
+				});
 			}
 		}
 
+		return await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+			requestedStrategy,
+		});
+	}
+
+	private async generateCompactSuggestion(
+		turn: TurnContext,
+		seed: SeedArtifact | null,
+		steering: SteeringSlice,
+		settings: ModelInvocationSettings | undefined,
+		config: PromptSuggesterConfig,
+		metadata: Omit<SuggestionMetadata, "strategy">,
+	): Promise<GeneratedSuggestion> {
 		const context = this.deps.promptContextBuilder.build(turn, seed, steering, config);
-		return await this.deps.modelClient.generateSuggestion(context, settings);
+		const result = await this.deps.modelClient.generateSuggestion(context, settings);
+		return {
+			text: result.text,
+			usage: result.usage,
+			metadata: {
+				...metadata,
+				strategy: "compact",
+			},
+		};
 	}
 }
