@@ -1,6 +1,11 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { TurnContext } from "../../domain/suggestion.js";
 
+export interface EditorHistoryState {
+	entries: string[];
+	index: number;
+}
+
 export class RuntimeRef {
 	private currentContext: ExtensionContext | undefined;
 	private generationEpoch = 0;
@@ -10,6 +15,7 @@ export class RuntimeRef {
 	private lastBootstrappedLeafId: string | undefined;
 	private panelSuggestionStatus: string | undefined;
 	private panelLogStatus: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined;
+	private editorHistoryState: EditorHistoryState = { entries: [], index: -1 };
 
 	public setContext(ctx: ExtensionContext): void {
 		this.currentContext = ctx;
@@ -71,5 +77,19 @@ export class RuntimeRef {
 
 	public getPanelLogStatus(): { level: "debug" | "info" | "warn" | "error"; text: string } | undefined {
 		return this.panelLogStatus;
+	}
+
+	public setEditorHistoryState(state: EditorHistoryState): void {
+		const entries = state.entries.map((entry) => entry.trim()).filter(Boolean);
+		const maxIndex = entries.length - 1;
+		const index = entries.length === 0 ? -1 : Math.max(-1, Math.min(state.index, maxIndex));
+		this.editorHistoryState = { entries, index };
+	}
+
+	public getEditorHistoryState(): EditorHistoryState {
+		return {
+			entries: [...this.editorHistoryState.entries],
+			index: this.editorHistoryState.index,
+		};
 	}
 }

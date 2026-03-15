@@ -1,5 +1,6 @@
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import type { EditorHistoryState } from "./runtime-ref.js";
 
 const GHOST_COLOR = "\x1b[38;5;244m";
 const RESET = "\x1b[0m";
@@ -15,11 +16,17 @@ interface GhostState {
 	multiline: boolean;
 }
 
+interface EditorHistoryCarrier {
+	history: string[];
+	historyIndex: number;
+}
+
 export class GhostSuggestionEditor extends CustomEditor {
 	private suppressGhost = false;
 	private suppressGhostArmedByNonEmptyText = false;
 	private lastSuggestion: string | undefined;
 	private lastSuggestionRevision = -1;
+	private needsInitialHistoryRestore = true;
 
 	public constructor(
 		tui: ConstructorParameters<typeof CustomEditor>[0],
@@ -27,11 +34,15 @@ export class GhostSuggestionEditor extends CustomEditor {
 		keybindings: ConstructorParameters<typeof CustomEditor>[2],
 		private readonly getSuggestion: () => string | undefined,
 		private readonly getSuggestionRevision: () => number,
+		private readonly getHistoryState: () => EditorHistoryState,
+		private readonly setHistoryState: (state: EditorHistoryState) => void,
 	) {
 		super(tui, theme, keybindings);
+		this.restoreSharedHistoryState();
+		this.syncSharedHistoryState();
 	}
 
-	public handleInput(data: string): void {
+	public override handleInput(data: string): void {
 		const ghost = this.getGhostState();
 		// Accept ghost suggestion with Space when the editor is still empty.
 		// Any other key should hide ghost mode and reveal normal editor UI behavior.
@@ -44,11 +55,32 @@ export class GhostSuggestionEditor extends CustomEditor {
 			this.suppressGhostArmedByNonEmptyText = false;
 			super.handleInput(data);
 			this.updateGhostSuppressionLifecycle();
+			this.syncSharedHistoryState();
 			return;
 		}
 
 		super.handleInput(data);
 		this.updateGhostSuppressionLifecycle();
+		this.syncSharedHistoryState();
+	}
+
+	public override addToHistory(text: string): void {
+		super.addToHistory(text);
+		this.syncSharedHistoryState();
+	}
+
+	public override setText(text: string): void {
+		super.setText(text);
+		if (this.needsInitialHistoryRestore) {
+			this.restoreSharedHistoryState();
+			this.needsInitialHistoryRestore = false;
+		}
+		this.syncSharedHistoryState();
+	}
+
+	public override insertTextAtCursor(text: string): void {
+		super.insertTextAtCursor(text);
+		this.syncSharedHistoryState();
 	}
 
 	public render(width: number): string[] {
@@ -100,6 +132,25 @@ export class GhostSuggestionEditor extends CustomEditor {
 		const used = col + visibleWidth(truncated);
 		const padding = " ".repeat(Math.max(0, width - used));
 		return truncateToWidth(`${" ".repeat(col)}${GHOST_COLOR}${truncated}${RESET}${padding}`, width, "");
+	}
+
+	private getHistoryCarrier(): EditorHistoryCarrier {
+		return this as unknown as EditorHistoryCarrier;
+	}
+
+	private restoreSharedHistoryState(): void {
+		const carrier = this.getHistoryCarrier();
+		const state = this.getHistoryState();
+		carrier.history = [...state.entries];
+		carrier.historyIndex = state.entries.length === 0 ? -1 : Math.max(-1, Math.min(state.index, state.entries.length - 1));
+	}
+
+	private syncSharedHistoryState(): void {
+		const carrier = this.getHistoryCarrier();
+		this.setHistoryState({
+			entries: [...carrier.history],
+			index: carrier.historyIndex,
+		});
 	}
 
 	private updateGhostSuppressionLifecycle(): void {
