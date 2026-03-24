@@ -67,7 +67,6 @@ export default function suggester(pi: ExtensionAPI) {
 			const composition = await setRuntimeContext(ctx);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
-				ctx.ui.setFooter(undefined);
 				installGhostEditor(ctx, composition);
 				scheduleGhostEditorReassertion(ctx, composition);
 				refreshSuggesterUi(
