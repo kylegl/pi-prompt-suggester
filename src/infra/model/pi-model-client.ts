@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { completeSimple, type Message, type Model, type UserMessage } from "@mariozechner/pi-ai";
+import { completeSimple, type Message, type Model, type Usage, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { ModelClient, ModelInvocationSettings, SuggestionModelContext } from "../../app/ports/model-client.js";
 import type { Logger } from "../../app/ports/logger.js";
@@ -78,6 +78,60 @@ function extractText(content: unknown): string {
 		})
 		.join("\n")
 		.trim();
+}
+
+function modelCostTotal(model: Model<any>): number {
+	return model.cost.input + model.cost.output + model.cost.cacheRead + model.cost.cacheWrite;
+}
+
+function resolvePricingModel(model: Model<any>, allModels: Model<any>[]): Model<any> {
+	if (modelCostTotal(model) > 0) return model;
+	const candidates = allModels.filter((entry) => entry.id === model.id && modelCostTotal(entry) > 0);
+	if (candidates.length === 0) return model;
+	return (
+		candidates.find((entry) => entry.provider === "openai") ??
+		candidates.find((entry) => entry.provider === "azure-openai-responses") ??
+		candidates[0]
+	);
+}
+
+export function toSuggestionUsage(
+	rawUsage: Usage | undefined,
+	model: Model<any>,
+	allModels: Model<any>[] = [],
+): SuggestionUsage {
+	const inputTokens = Number(rawUsage?.input ?? 0);
+	const outputTokens = Number(rawUsage?.output ?? 0);
+	const cacheReadTokens = Number(rawUsage?.cacheRead ?? 0);
+	const cacheWriteTokens = Number(rawUsage?.cacheWrite ?? 0);
+	const totalTokens = Number(rawUsage?.totalTokens ?? 0);
+	const reportedCostTotal = Number(rawUsage?.cost?.total ?? 0);
+	if (reportedCostTotal > 0) {
+		return {
+			inputTokens,
+			outputTokens,
+			cacheReadTokens,
+			cacheWriteTokens,
+			totalTokens,
+			costTotal: reportedCostTotal,
+		};
+	}
+
+	const pricingModel = resolvePricingModel(model, allModels);
+	const costTotal =
+		(pricingModel.cost.input / 1_000_000) * inputTokens +
+		(pricingModel.cost.output / 1_000_000) * outputTokens +
+		(pricingModel.cost.cacheRead / 1_000_000) * cacheReadTokens +
+		(pricingModel.cost.cacheWrite / 1_000_000) * cacheWriteTokens;
+
+	return {
+		inputTokens,
+		outputTokens,
+		cacheReadTokens,
+		cacheWriteTokens,
+		totalTokens,
+		costTotal,
+	};
 }
 
 function isTranscriptSuggestionContext(context: SuggestionModelContext): context is TranscriptSuggestionPromptContext {
@@ -535,14 +589,7 @@ export class PiModelClient implements ModelClient {
 		if (!text) throw new Error("Model returned empty text");
 		return {
 			text,
-			usage: {
-				inputTokens: Number(response.usage?.input ?? 0),
-				outputTokens: Number(response.usage?.output ?? 0),
-				cacheReadTokens: Number(response.usage?.cacheRead ?? 0),
-				cacheWriteTokens: Number(response.usage?.cacheWrite ?? 0),
-				totalTokens: Number(response.usage?.totalTokens ?? 0),
-				costTotal: Number(response.usage?.cost?.total ?? 0),
-			},
+			usage: toSuggestionUsage(response.usage, model, ctx.modelRegistry.getAll()),
 		};
 	}
 
