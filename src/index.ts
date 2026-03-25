@@ -119,12 +119,18 @@ export default function suggester(pi: ExtensionAPI) {
 		onAgentEnd: async (turn, ctx) => {
 			if (!turn) return;
 			const composition = await setRuntimeContext(ctx);
+			if (ctx.hasUI) {
+				ensureGhostEditorInstalled(ctx, composition);
+			}
 			composition.runtimeRef.setLastTurnContext(turn);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.agentEnd.handle(turn, generationId);
 		},
 		onUserSubmit: async (event: InputEvent, ctx) => {
 			const composition = await setRuntimeContext(ctx);
+			if (ctx.hasUI) {
+				ensureGhostEditorInstalled(ctx, composition);
+			}
 			composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.userSubmit.handle({
 				turnId: ctx.sessionManager.getLeafId() ?? `input-${Date.now()}`,
