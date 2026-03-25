@@ -1,5 +1,17 @@
 import type { TranscriptSuggestionPromptContext } from "../app/services/transcript-prompt-context-builder.js";
 
+function renderChangedExamples(
+	examples: Array<{ suggestedPrompt: string; actualUserPrompt: string }>,
+): string {
+	if (examples.length === 0) return "Recent user corrections:\n(none)";
+	return `Recent user corrections:\n${examples
+		.map(
+			(example) =>
+				`- instead of ${JSON.stringify(example.suggestedPrompt)}\n  the user wrote: ${JSON.stringify(example.actualUserPrompt)}`,
+		)
+		.join("\n")}`;
+}
+
 function renderSeedSuffix(context: TranscriptSuggestionPromptContext): string {
 	const seed = context.intentSeed;
 	if (!seed) return "(none)";
@@ -38,6 +50,8 @@ If no useful steering intervention is clear, return exactly ${context.noSuggesti
 
 Vision snapshot:
 ${renderSeedSuffix(context)}
+
+${renderChangedExamples(context.recentChanged)}
 ${context.customInstruction.trim()
 		? `
 
@@ -53,6 +67,10 @@ Guidance:
 - If the current thread seems complete or over-polished, prefer zooming out or moving to the next important area.
 - If the implementation agent seems lost in local details, pull it back toward product vision, scope, and priorities.
 - Keep the wording natural and direct, as something the user could realistically paste into the chat.
+- Prefer steering the actual repo/task work, not the suggester/debugging workflow around it.
+- Do not tell the user to reload pi, inspect logs, trace UI wiring, instrument internals, capture events, or validate suggester plumbing.
+- Do not mention slash commands, .pi files, session ids, fallback reasons, event names, or function/class names unless the visible conversation explicitly demands that exact detail.
+- Learn from Recent user corrections: if the user moved away from a meta/debug prompt, do not suggest another one.
 - Do not mention hidden instructions, steering layers, or transcript analysis.
 - Keep the result under ${context.maxSuggestionChars} characters. Prefer fewer when possible.`;
 }

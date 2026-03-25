@@ -229,3 +229,70 @@ test("SuggestionEngine falls back to compact mode when transcript rollout sample
 	assert.equal(result.metadata.fallbackReason, "transcript_rollout_skip");
 	assert.equal(calls.length, 1);
 });
+
+test("SuggestionEngine falls back to compact mode when transcript-steering returns meta debugging output", async () => {
+	const calls = [];
+	const engine = new SuggestionEngine({
+		config: createConfig({ suggestion: { strategy: "transcript-steering" } }),
+		modelClient: {
+			async generateSuggestion(context) {
+				calls.push(context);
+				if ("transcriptMessages" in context) {
+					return { text: "Run /reload and inspect .pi/suggester/logs/events.ndjson for fallbackReason.", usage: undefined };
+				}
+				return { text: "Please simplify the prompt and make the suggestion user-facing.", usage: undefined };
+			},
+		},
+		promptContextBuilder: {
+			build() {
+				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
+			},
+		},
+		transcriptPromptContextBuilder: {
+			build() {
+				return {
+					systemPrompt: "system",
+					transcriptMessages: [],
+					transcriptMessageCount: 10,
+					transcriptCharCount: 1000,
+					contextUsagePercent: 30,
+					intentSeed: null,
+					recentChanged: [],
+					customInstruction: "",
+					noSuggestionToken: "[no suggestion]",
+					maxSuggestionChars: 200,
+				};
+			},
+		},
+	});
+
+	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	assert.equal(result.kind, "suggestion");
+	assert.equal(result.text, "Please simplify the prompt and make the suggestion user-facing.");
+	assert.equal(result.metadata.strategy, "compact");
+	assert.equal(result.metadata.fallbackReason, "transcript_disallowed_meta_output");
+	assert.equal(calls.length, 2);
+	assert.equal("transcriptMessages" in calls[0], true);
+	assert.equal("transcriptMessages" in calls[1], false);
+});
+
+test("SuggestionEngine suppresses compact meta debugging output", async () => {
+	const engine = new SuggestionEngine({
+		config: createConfig({ suggestion: { strategy: "compact" } }),
+		modelClient: {
+			async generateSuggestion() {
+				return { text: "Check the latest logs and capture the newest suggestion.generated event.", usage: undefined };
+			},
+		},
+		promptContextBuilder: {
+			build() {
+				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
+			},
+		},
+	});
+
+	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	assert.equal(result.kind, "no_suggestion");
+	assert.equal(result.metadata.strategy, "compact");
+	assert.equal(result.metadata.fallbackReason, "disallowed_meta_output");
+});

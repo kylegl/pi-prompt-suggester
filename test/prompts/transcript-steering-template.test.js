@@ -23,6 +23,7 @@ test("renderTranscriptSteeringPrompt frames transcript mode as steering", () => 
 	assert.match(prompt, /draft the single message the user could send next to best steer the implementation agent/i);
 	assert.match(prompt, /Optimize for usefulness, alignment, and leverage/i);
 	assert.match(prompt, /You may steer by continuing, redirecting, simplifying, asking for verification, closing the loop, switching tracks, or asking a clarifying question/i);
+	assert.match(prompt, /Do not tell the user to reload pi, inspect logs, trace UI wiring, instrument internals, capture events, or validate suggester plumbing/i);
 });
 
 test("renderTranscriptSteeringPrompt includes persistent preferences when provided", () => {
@@ -30,7 +31,8 @@ test("renderTranscriptSteeringPrompt includes persistent preferences when provid
 		...baseContext,
 		customInstruction: "Bias toward simplification.",
 	});
+	assert.match(prompt, /Recent user corrections:/i);
 	assert.match(prompt, /Persistent user preference:/);
 	assert.match(prompt, /Bias toward simplification\./);
-	assert.doesNotMatch(prompt, /Recent user corrections:/);
+	assert.match(prompt, /\(none\)/);
 });

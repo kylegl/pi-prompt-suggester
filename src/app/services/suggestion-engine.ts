@@ -6,6 +6,7 @@ import type { SteeringSlice } from "../../domain/steering.js";
 import type { ModelClient } from "../ports/model-client.js";
 import type { PromptContextBuilder } from "./prompt-context-builder.js";
 import type { TranscriptPromptContextBuilder } from "./transcript-prompt-context-builder.js";
+import { accumulateUsage } from "../../domain/usage.js";
 
 function normalizeSuggestion(value: string, maxChars: number): string {
 	const normalizedLineEndings = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -24,6 +25,34 @@ function stableSamplePercent(seed: string): number {
 		hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
 	}
 	return hash % 100;
+}
+
+const DISALLOWED_META_PATTERNS = [
+	/\/(?:reload|suggester\b|suggesterSettings\b)/i,
+	/\.pi\//i,
+	/events?\.ndjson/i,
+	/\bfallbackReason\b/i,
+	/\bsession id\b/i,
+	/\brequestedStrategy\b/i,
+	/\btrace only\b/i,
+	/\b(?:trace|instrument|instrumentation|debug|debugging)\b/i,
+	/\b(?:showSuggestion|clearSuggestion|GhostSuggestionEditor|PiSuggestionSink|getGhostState)\b/i,
+	/\b(?:provider\.payload|panel lines rendered|runtime state|UI wiring|agent_end)\b/i,
+	/\b(?:inspect|check|capture|validate)\b.{0,40}\b(?:logs?|events?|payload|session id|fallbackReason|runtime|render(?:ing)?|wiring)\b/i,
+];
+
+function isDisallowedMetaSuggestion(value: string): boolean {
+	const normalized = value.trim();
+	if (!normalized) return false;
+	return DISALLOWED_META_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function accumulateOptionalUsage(
+	current: SuggestionUsage | undefined,
+	usage: SuggestionUsage | undefined,
+): SuggestionUsage | undefined {
+	if (!current) return usage;
+	return accumulateUsage(current, usage);
 }
 
 interface GeneratedSuggestion {
@@ -65,12 +94,38 @@ export class SuggestionEngine {
 		const raw = await this.generateWithBestAvailableStrategy(turn, seed, steering, settings, config);
 		const normalized = normalizeSuggestion(raw.text, config.suggestion.maxSuggestionChars);
 		if (!normalized || normalized === config.suggestion.noSuggestionToken) {
-			return {
-				kind: "no_suggestion",
-				text: config.suggestion.noSuggestionToken,
-				usage: raw.usage,
-				metadata: raw.metadata,
-			};
+			return this.toNoSuggestion(config, raw.usage, raw.metadata);
+		}
+
+		if (isDisallowedMetaSuggestion(normalized)) {
+			if (raw.metadata.strategy === "transcript-steering") {
+				const fallback = await this.generateCompactSuggestion(turn, seed, steering, settings, config, {
+					requestedStrategy: raw.metadata.requestedStrategy,
+					fallbackReason: "transcript_disallowed_meta_output",
+					contextUsagePercent: raw.metadata.contextUsagePercent,
+					transcriptMessageCount: raw.metadata.transcriptMessageCount,
+					transcriptCharCount: raw.metadata.transcriptCharCount,
+				});
+				const fallbackNormalized = normalizeSuggestion(fallback.text, config.suggestion.maxSuggestionChars);
+				if (
+					fallbackNormalized &&
+					fallbackNormalized !== config.suggestion.noSuggestionToken &&
+					!isDisallowedMetaSuggestion(fallbackNormalized)
+				) {
+					return {
+						kind: "suggestion",
+						text: fallbackNormalized,
+						usage: accumulateOptionalUsage(raw.usage, fallback.usage),
+						metadata: fallback.metadata,
+					};
+				}
+				return this.toNoSuggestion(config, accumulateOptionalUsage(raw.usage, fallback.usage), fallback.metadata);
+			}
+
+			return this.toNoSuggestion(config, raw.usage, {
+				...raw.metadata,
+				fallbackReason: raw.metadata.fallbackReason ?? "disallowed_meta_output",
+			});
 		}
 
 		return {
@@ -78,6 +133,19 @@ export class SuggestionEngine {
 			text: normalized,
 			usage: raw.usage,
 			metadata: raw.metadata,
+		};
+	}
+
+	private toNoSuggestion(
+		config: PromptSuggesterConfig,
+		usage: SuggestionUsage | undefined,
+		metadata: SuggestionMetadata,
+	): SuggestionResult {
+		return {
+			kind: "no_suggestion",
+			text: config.suggestion.noSuggestionToken,
+			usage,
+			metadata,
 		};
 	}
 
