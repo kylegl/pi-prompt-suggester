@@ -16,6 +16,8 @@ export interface UiContextLike {
 	setSuggestion(text: string | undefined): void;
 	getPanelSuggestionStatus(): string | undefined;
 	setPanelSuggestionStatus(text: string | undefined): void;
+	getPanelUsageStatus(): string | undefined;
+	setPanelUsageStatus(text: string | undefined): void;
 	getPanelLogStatus(): WidgetLogStatus | undefined;
 	setPanelLogStatus(status: WidgetLogStatus | undefined): void;
 	getSuggesterModelDisplay(): string | undefined;
@@ -36,6 +38,8 @@ export function createUiContext(params: {
 		setSuggestion: (text) => runtimeRef.setSuggestion(text),
 		getPanelSuggestionStatus: () => runtimeRef.getPanelSuggestionStatus(),
 		setPanelSuggestionStatus: (text) => runtimeRef.setPanelSuggestionStatus(text),
+		getPanelUsageStatus: () => runtimeRef.getPanelUsageStatus(),
+		setPanelUsageStatus: (text) => runtimeRef.setPanelUsageStatus(text),
 		getPanelLogStatus: () => runtimeRef.getPanelLogStatus(),
 		setPanelLogStatus: (status) => runtimeRef.setPanelLogStatus(status),
 		getSuggesterModelDisplay: () => {

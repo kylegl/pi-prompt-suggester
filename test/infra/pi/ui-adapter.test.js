@@ -15,6 +15,7 @@ test("PiSuggestionSink keeps ghost suggestions even before idle flips", async ()
 		epoch: 1,
 		suggestion: undefined,
 		panelSuggestionStatus: undefined,
+		panelUsageStatus: undefined,
 		getContext() {
 			return {
 				hasUI: true,
@@ -49,6 +50,12 @@ test("PiSuggestionSink keeps ghost suggestions even before idle flips", async ()
 		setPanelSuggestionStatus(text) {
 			this.panelSuggestionStatus = text;
 		},
+		getPanelUsageStatus() {
+			return this.panelUsageStatus;
+		},
+		setPanelUsageStatus(text) {
+			this.panelUsageStatus = text;
+		},
 		getPanelLogStatus() {
 			return undefined;
 		},
@@ -71,6 +78,7 @@ test("PiSuggestionSink retains suggestions even when the editor text is temporar
 		epoch: 1,
 		suggestion: undefined,
 		panelSuggestionStatus: undefined,
+		panelUsageStatus: undefined,
 		getContext() {
 			return {
 				hasUI: true,
@@ -104,6 +112,12 @@ test("PiSuggestionSink retains suggestions even when the editor text is temporar
 		},
 		setPanelSuggestionStatus(text) {
 			this.panelSuggestionStatus = text;
+		},
+		getPanelUsageStatus() {
+			return this.panelUsageStatus;
+		},
+		setPanelUsageStatus(text) {
+			this.panelUsageStatus = text;
 		},
 		getPanelLogStatus() {
 			return undefined;
@@ -147,6 +161,9 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 		getPanelSuggestionStatus() {
 			return "✦ prompt suggestion · Space accepts";
 		},
+		getPanelUsageStatus() {
+			return "suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)";
+		},
 		getPanelLogStatus() {
 			return undefined;
 		},
@@ -158,5 +175,59 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 	assert.equal(typeof lastWidget?.content, "function");
 	const rendered = lastWidget.content(null, createTheme()).render(80);
 	assert.equal(rendered.some((line) => line.includes("✦ prompt suggestion · Space accepts")), true);
-	assert.equal(rendered.some((line) => line.includes("show the actual suggestion text")), false);
+	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
+});
+
+test("PiSuggestionSink writes usage into the panel instead of the footer status line", async () => {
+	const statusCalls = [];
+	const runtime = {
+		epoch: 1,
+		panelUsageStatus: undefined,
+		getContext() {
+			return {
+				hasUI: true,
+				ui: {
+					setStatus(key, value) {
+						statusCalls.push([key, value]);
+					},
+					setWidget() {},
+					theme: createTheme(),
+				},
+			};
+		},
+		getEpoch() {
+			return this.epoch;
+		},
+		getSuggestion() {
+			return undefined;
+		},
+		setSuggestion() {},
+		getPanelSuggestionStatus() {
+			return undefined;
+		},
+		setPanelSuggestionStatus() {},
+		getPanelUsageStatus() {
+			return this.panelUsageStatus;
+		},
+		setPanelUsageStatus(text) {
+			this.panelUsageStatus = text;
+		},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		setPanelLogStatus() {},
+		getSuggesterModelDisplay() {
+			return "(openai) gpt-5 • high";
+		},
+		prefillOnlyWhenEditorEmpty: true,
+	};
+
+	const sink = new PiSuggestionSink(runtime);
+	await sink.setUsage({
+		suggester: { calls: 1, inputTokens: 10, outputTokens: 5, cacheReadTokens: 2, cacheWriteTokens: 0, totalTokens: 15, costTotal: 0.001 },
+		seeder: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, costTotal: 0 },
+	});
+
+	assert.match(runtime.panelUsageStatus, /suggester usage:/);
+	assert.equal(statusCalls.some(([key]) => key === "suggester-usage"), true);
 });

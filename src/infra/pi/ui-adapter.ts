@@ -34,10 +34,12 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 
 	ctx.ui.setStatus("suggester", undefined);
 	ctx.ui.setStatus("suggester-events", undefined);
+	ctx.ui.setStatus("suggester-usage", undefined);
 
 	const suggestionStatus = runtime.getPanelSuggestionStatus();
+	const usageStatus = runtime.getPanelUsageStatus();
 	const logStatus = runtime.getPanelLogStatus();
-	if (!suggestionStatus && !logStatus) {
+	if (!suggestionStatus && !usageStatus && !logStatus) {
 		ctx.ui.setWidget("suggester-panel", undefined);
 		return;
 	}
@@ -47,13 +49,22 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 		(_tui, theme) => ({
 			invalidate() {},
 			render(width: number): string[] {
+				const lines: string[] = [];
 				const parts: string[] = [];
 				if (suggestionStatus) parts.push(theme.fg("accent", suggestionStatus));
 				if (logStatus) parts.push(formatPanelLog(ctx, logStatus));
 				const line = parts.join(" · ");
-				const truncated = truncateToWidth(line, Math.max(10, width), "", true);
-				const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-				return [truncated + pad];
+				if (line) {
+					const truncated = truncateToWidth(line, Math.max(10, width), "", true);
+					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+					lines.push(truncated + pad);
+				}
+				if (usageStatus) {
+					const truncated = truncateToWidth(theme.fg("dim", usageStatus), Math.max(10, width), "", true);
+					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+					lines.push(truncated + pad);
+				}
+				return lines.length > 0 ? lines : [" ".repeat(Math.max(1, width))];
 			},
 		}),
 		{ placement: "belowEditor" },
@@ -97,12 +108,11 @@ export class PiSuggestionSink implements SuggestionSink {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.hasUI) return;
 		if (usage.suggester.calls <= 0 && usage.seeder.calls <= 0) {
-			ctx.ui.setStatus("suggester-usage", undefined);
+			this.runtime.setPanelUsageStatus(undefined);
+			refreshSuggesterUi(this.runtime);
 			return;
 		}
-		ctx.ui.setStatus(
-			"suggester-usage",
-			ctx.ui.theme.fg("dim", formatUsage(usage, this.runtime.getSuggesterModelDisplay())),
-		);
+		this.runtime.setPanelUsageStatus(formatUsage(usage, this.runtime.getSuggesterModelDisplay()));
+		refreshSuggesterUi(this.runtime);
 	}
 }

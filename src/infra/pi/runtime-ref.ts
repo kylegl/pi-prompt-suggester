@@ -14,6 +14,7 @@ export class RuntimeRef {
 	private lastTurnContext: TurnContext | undefined;
 	private lastBootstrappedLeafId: string | undefined;
 	private panelSuggestionStatus: string | undefined;
+	private panelUsageStatus: string | undefined;
 	private panelLogStatus: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined;
 	private editorHistoryState: EditorHistoryState = { entries: [], index: -1 };
 
@@ -69,6 +70,14 @@ export class RuntimeRef {
 
 	public getPanelSuggestionStatus(): string | undefined {
 		return this.panelSuggestionStatus;
+	}
+
+	public setPanelUsageStatus(text: string | undefined): void {
+		this.panelUsageStatus = text?.trim() || undefined;
+	}
+
+	public getPanelUsageStatus(): string | undefined {
+		return this.panelUsageStatus;
 	}
 
 	public setPanelLogStatus(status: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined): void {
