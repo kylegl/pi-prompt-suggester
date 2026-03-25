@@ -27,6 +27,8 @@ export interface SuggestionConfig {
 	maxAbortContextChars: number;
 	maxSuggestionChars: number;
 	prefillOnlyWhenEditorEmpty: boolean;
+	showUsageInPanel: boolean;
+	showPanelStatus: boolean;
 	strategy: SuggestionStrategy;
 	transcriptMaxContextPercent: number;
 	transcriptMaxMessages: number;

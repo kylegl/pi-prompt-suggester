@@ -23,6 +23,8 @@
     "maxAbortContextChars": 280,
     "maxSuggestionChars": 200,
     "prefillOnlyWhenEditorEmpty": true,
+    "showUsageInPanel": true,
+    "showPanelStatus": true,
     "strategy": "compact",
     "transcriptMaxContextPercent": 70,
     "transcriptMaxMessages": 120,

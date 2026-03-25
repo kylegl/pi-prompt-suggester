@@ -22,6 +22,8 @@ export interface UiContextLike {
 	setPanelLogStatus(status: WidgetLogStatus | undefined): void;
 	getSuggesterModelDisplay(): string | undefined;
 	prefillOnlyWhenEditorEmpty: boolean;
+	showUsageInPanel: boolean;
+	showPanelStatus: boolean;
 }
 
 export function createUiContext(params: {
@@ -52,5 +54,7 @@ export function createUiContext(params: {
 			});
 		},
 		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
+		showUsageInPanel: config.suggestion.showUsageInPanel,
+		showPanelStatus: config.suggestion.showPanelStatus,
 	};
 }

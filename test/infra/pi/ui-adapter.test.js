@@ -64,6 +64,8 @@ test("PiSuggestionSink keeps ghost suggestions even before idle flips", async ()
 			return undefined;
 		},
 		prefillOnlyWhenEditorEmpty: true,
+		showUsageInPanel: true,
+		showPanelStatus: true,
 	};
 
 	const sink = new PiSuggestionSink(runtime);
@@ -127,6 +129,8 @@ test("PiSuggestionSink retains suggestions even when the editor text is temporar
 			return undefined;
 		},
 		prefillOnlyWhenEditorEmpty: true,
+		showUsageInPanel: true,
+		showPanelStatus: true,
 	};
 
 	const sink = new PiSuggestionSink(runtime);
@@ -167,6 +171,8 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 		getPanelLogStatus() {
 			return undefined;
 		},
+		showUsageInPanel: true,
+		showPanelStatus: true,
 	};
 
 	refreshSuggesterUi(runtime);
@@ -220,6 +226,8 @@ test("PiSuggestionSink writes usage into the panel instead of the footer status 
 			return "(openai) gpt-5 • high";
 		},
 		prefillOnlyWhenEditorEmpty: true,
+		showUsageInPanel: true,
+		showPanelStatus: true,
 	};
 
 	const sink = new PiSuggestionSink(runtime);
@@ -232,7 +240,7 @@ test("PiSuggestionSink writes usage into the panel instead of the footer status 
 	assert.equal(statusCalls.some(([key]) => key === "suggester-usage"), true);
 });
 
-test("refreshSuggesterUi hides orphan usage when there is no active suggestion or log", () => {
+test("refreshSuggesterUi shows orphan usage when usage display is enabled", () => {
 	let lastWidget;
 	const ctx = {
 		hasUI: true,
@@ -257,6 +265,45 @@ test("refreshSuggesterUi hides orphan usage when there is no active suggestion o
 		getPanelLogStatus() {
 			return undefined;
 		},
+		showUsageInPanel: true,
+		showPanelStatus: true,
+	};
+
+	refreshSuggesterUi(runtime);
+
+	assert.equal(lastWidget?.key, "suggester-panel");
+	assert.equal(typeof lastWidget?.content, "function");
+	const rendered = lastWidget.content(null, createTheme()).render(80);
+	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
+});
+
+test("refreshSuggesterUi hides orphan usage when usage display is disabled", () => {
+	let lastWidget;
+	const ctx = {
+		hasUI: true,
+		ui: {
+			setStatus() {},
+			setWidget(key, content) {
+				lastWidget = { key, content };
+			},
+			theme: createTheme(),
+		},
+	};
+	const runtime = {
+		getContext() {
+			return ctx;
+		},
+		getPanelSuggestionStatus() {
+			return undefined;
+		},
+		getPanelUsageStatus() {
+			return "suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)";
+		},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		showUsageInPanel: false,
+		showPanelStatus: true,
 	};
 
 	refreshSuggesterUi(runtime);

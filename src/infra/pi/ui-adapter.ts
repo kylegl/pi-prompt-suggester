@@ -36,10 +36,17 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 	ctx.ui.setStatus("suggester-events", undefined);
 	ctx.ui.setStatus("suggester-usage", undefined);
 
-	const suggestionStatus = runtime.getPanelSuggestionStatus();
-	const usageStatus = runtime.getPanelUsageStatus();
+	const suggestionStatus = runtime.showPanelStatus ? runtime.getPanelSuggestionStatus() : undefined;
+	const usageStatus = runtime.showUsageInPanel ? runtime.getPanelUsageStatus() : undefined;
 	const logStatus = runtime.getPanelLogStatus();
 	if (!suggestionStatus && !logStatus) {
+		if (!usageStatus) {
+			ctx.ui.setWidget("suggester-panel", undefined);
+			return;
+		}
+	}
+
+	if (!suggestionStatus && !logStatus && !usageStatus) {
 		ctx.ui.setWidget("suggester-panel", undefined);
 		return;
 	}
@@ -59,7 +66,7 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
 					lines.push(truncated + pad);
 				}
-				if (suggestionStatus && usageStatus) {
+				if (usageStatus) {
 					const truncated = truncateToWidth(theme.fg("dim", usageStatus), Math.max(10, width), "", true);
 					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
 					lines.push(truncated + pad);

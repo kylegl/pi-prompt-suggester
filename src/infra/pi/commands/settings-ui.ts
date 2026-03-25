@@ -144,6 +144,22 @@ export async function handleSettingsUiCommand(
 				),
 			},
 			{
+				value: "suggestion.showPanelStatus",
+				label: "Show suggestion status in panel",
+				description: await describeScopedValue(
+					"suggestion.showPanelStatus",
+					composition.config.suggestion.showPanelStatus,
+				),
+			},
+			{
+				value: "suggestion.showUsageInPanel",
+				label: "Show suggester usage in panel",
+				description: await describeScopedValue(
+					"suggestion.showUsageInPanel",
+					composition.config.suggestion.showUsageInPanel,
+				),
+			},
+			{
 				value: "suggestion.fastPathContinueOnError",
 				label: "Fast-path continue on error",
 				description: await describeScopedValue(
@@ -367,6 +383,36 @@ export async function handleSettingsUiCommand(
 				);
 				const selected = await ctx.ui.select(
 					`Ghost only on empty editor? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
+					["true", "false"],
+				);
+				if (!selected) continue;
+				await persistence.writeValue(activeScope, action, selected === "true");
+				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
+				continue;
+			}
+
+			if (action === "suggestion.showPanelStatus") {
+				const currentValue = await getScopedEditorValue(
+					"suggestion.showPanelStatus",
+					composition.config.suggestion.showPanelStatus,
+				);
+				const selected = await ctx.ui.select(
+					`Show suggestion status in panel? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
+					["true", "false"],
+				);
+				if (!selected) continue;
+				await persistence.writeValue(activeScope, action, selected === "true");
+				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
+				continue;
+			}
+
+			if (action === "suggestion.showUsageInPanel") {
+				const currentValue = await getScopedEditorValue(
+					"suggestion.showUsageInPanel",
+					composition.config.suggestion.showUsageInPanel,
+				);
+				const selected = await ctx.ui.select(
+					`Show suggester usage in panel? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
 					["true", "false"],
 				);
 				if (!selected) continue;
