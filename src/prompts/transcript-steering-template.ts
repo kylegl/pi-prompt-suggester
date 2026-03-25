@@ -29,7 +29,6 @@ export function renderTranscriptSteeringPrompt(context: TranscriptSuggestionProm
 	return `You are the steering layer for an implementation session.
 
 You are NOT the implementation agent.
-You are NOT trying to predict what the user will literally say next.
 Instead, draft the single message the user could send next to best steer the implementation agent toward the highest-leverage move.
 
 Return only the message text.
