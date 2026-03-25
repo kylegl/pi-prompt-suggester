@@ -231,3 +231,36 @@ test("PiSuggestionSink writes usage into the panel instead of the footer status 
 	assert.match(runtime.panelUsageStatus, /suggester usage:/);
 	assert.equal(statusCalls.some(([key]) => key === "suggester-usage"), true);
 });
+
+test("refreshSuggesterUi hides orphan usage when there is no active suggestion or log", () => {
+	let lastWidget;
+	const ctx = {
+		hasUI: true,
+		ui: {
+			setStatus() {},
+			setWidget(key, content) {
+				lastWidget = { key, content };
+			},
+			theme: createTheme(),
+		},
+	};
+	const runtime = {
+		getContext() {
+			return ctx;
+		},
+		getPanelSuggestionStatus() {
+			return undefined;
+		},
+		getPanelUsageStatus() {
+			return "suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)";
+		},
+		getPanelLogStatus() {
+			return undefined;
+		},
+	};
+
+	refreshSuggesterUi(runtime);
+
+	assert.equal(lastWidget?.key, "suggester-panel");
+	assert.equal(lastWidget?.content, undefined);
+});
