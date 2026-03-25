@@ -22,7 +22,7 @@ function createConfig() {
 			maxAbortContextChars: 280,
 			maxSuggestionChars: 200,
 			prefillOnlyWhenEditorEmpty: true,
-			strategy: "transcript-cache",
+			strategy: "transcript-steering",
 			transcriptMaxContextPercent: 70,
 			transcriptMaxMessages: 120,
 			transcriptMaxChars: 120000,
@@ -39,7 +39,7 @@ function createConfig() {
 	};
 }
 
-test("TurnEndOrchestrator records usage and persists transcript-cache suggestion metadata", async () => {
+test("TurnEndOrchestrator records usage and persists transcript-steering suggestion metadata", async () => {
 	let savedState;
 	const usageCalls = [];
 	const shown = [];
@@ -51,8 +51,8 @@ test("TurnEndOrchestrator records usage and persists transcript-cache suggestion
 			suggestionShownAt: "2026-03-15T00:00:00.000Z",
 			userPromptSubmittedAt: "2026-03-15T00:01:00.000Z",
 			variantName: "experiment",
-			strategy: "transcript-cache",
-			requestedStrategy: "transcript-cache",
+			strategy: "transcript-steering",
+			requestedStrategy: "transcript-steering",
 		},
 	};
 	const orchestrator = new TurnEndOrchestrator({
@@ -71,7 +71,7 @@ test("TurnEndOrchestrator records usage and persists transcript-cache suggestion
 					kind: "suggestion",
 					text: "Go ahead.",
 					usage: { inputTokens: 10, outputTokens: 3, cacheReadTokens: 9, cacheWriteTokens: 1, totalTokens: 13, costTotal: 0.02 },
-					metadata: { requestedStrategy: "transcript-cache", strategy: "transcript-cache", transcriptMessageCount: 12, transcriptCharCount: 400 },
+					metadata: { requestedStrategy: "transcript-steering", strategy: "transcript-steering", transcriptMessageCount: 12, transcriptCharCount: 400 },
 				};
 			},
 		},
@@ -110,8 +110,8 @@ test("TurnEndOrchestrator records usage and persists transcript-cache suggestion
 	assert.equal(usageCalls.length, 1);
 	assert.equal(usageCalls[0].kind, "suggester");
 	assert.equal(savedState.lastSuggestion.variantName, "experiment");
-	assert.equal(savedState.lastSuggestion.strategy, "transcript-cache");
-	assert.equal(savedState.lastSuggestion.requestedStrategy, "transcript-cache");
+	assert.equal(savedState.lastSuggestion.strategy, "transcript-steering");
+	assert.equal(savedState.lastSuggestion.requestedStrategy, "transcript-steering");
 	assert.equal(savedState.pendingNextTurnObservation, undefined);
 	assert.equal(logEvents.some((entry) => entry.message === "suggestion.next_turn.cache_observed"), true);
 	assert.equal(logEvents.some((entry) => entry.message === "suggestion.generated" && entry.meta.variantName === "experiment"), true);

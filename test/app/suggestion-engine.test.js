@@ -72,10 +72,10 @@ const turn = {
 	unresolvedQuestions: [],
 };
 
-test("SuggestionEngine uses transcript-cache mode when eligible", async () => {
+test("SuggestionEngine uses transcript-steering mode when eligible", async () => {
 	const calls = [];
 	const engine = new SuggestionEngine({
-		config: createConfig({ suggestion: { strategy: "transcript-cache" } }),
+		config: createConfig({ suggestion: { strategy: "transcript-steering" } }),
 		modelClient: {
 			async generateSuggestion(context) {
 				calls.push(context);
@@ -107,15 +107,15 @@ test("SuggestionEngine uses transcript-cache mode when eligible", async () => {
 
 	const result = await engine.suggest(turn, null, { recentChanged: [] });
 	assert.equal(result.kind, "suggestion");
-	assert.equal(result.metadata.strategy, "transcript-cache");
-	assert.equal(result.metadata.requestedStrategy, "transcript-cache");
+	assert.equal(result.metadata.strategy, "transcript-steering");
+	assert.equal(result.metadata.requestedStrategy, "transcript-steering");
 	assert.equal("transcriptMessages" in calls[0], true);
 });
 
 test("SuggestionEngine falls back to compact mode when transcript guardrails reject the run", async () => {
 	const calls = [];
 	const engine = new SuggestionEngine({
-		config: createConfig({ suggestion: { strategy: "transcript-cache", transcriptMaxContextPercent: 50 } }),
+		config: createConfig({ suggestion: { strategy: "transcript-steering", transcriptMaxContextPercent: 50 } }),
 		modelClient: {
 			async generateSuggestion(context) {
 				calls.push(context);
@@ -155,7 +155,7 @@ test("SuggestionEngine falls back to compact mode when transcript guardrails rej
 test("SuggestionEngine falls back to compact mode when transcript rollout samples out", async () => {
 	const calls = [];
 	const engine = new SuggestionEngine({
-		config: createConfig({ suggestion: { strategy: "transcript-cache", transcriptRolloutPercent: 0 } }),
+		config: createConfig({ suggestion: { strategy: "transcript-steering", transcriptRolloutPercent: 0 } }),
 		modelClient: {
 			async generateSuggestion(context) {
 				calls.push(context);

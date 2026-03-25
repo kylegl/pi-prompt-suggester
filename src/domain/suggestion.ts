@@ -1,5 +1,5 @@
 export type TurnStatus = "success" | "error" | "aborted";
-export type SuggestionStrategy = "compact" | "transcript-cache";
+export type SuggestionStrategy = "compact" | "transcript-steering";
 
 export interface SuggestionUsage {
 	inputTokens: number;

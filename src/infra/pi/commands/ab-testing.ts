@@ -72,13 +72,13 @@ async function promptVariantThinking(
 async function promptVariantStrategy(
 	ctx: ExtensionCommandContext,
 	currentValue: string | undefined,
-): Promise<"compact" | "transcript-cache" | undefined | null> {
+): Promise<"compact" | "transcript-steering" | undefined | null> {
 	const selected = await ctx.ui.select(
 		`Suggester strategy (current: ${currentValue ?? "inherit"})`,
-		["(inherit)", "compact", "transcript-cache"],
+		["(inherit)", "compact", "transcript-steering"],
 	);
 	if (!selected) return undefined;
-	return selected === "(inherit)" ? null : (selected as "compact" | "transcript-cache");
+	return selected === "(inherit)" ? null : (selected as "compact" | "transcript-steering");
 }
 
 async function editVariantUi(

@@ -45,7 +45,7 @@ test("variant store applies active variant overrides to effective config", async
 	await store.init();
 	await store.createVariant("terse");
 	await store.updateVariant("terse", {
-		strategy: "transcript-cache",
+		strategy: "transcript-steering",
 		suggesterModel: "openai/gpt-5",
 		suggesterThinking: "high",
 		maxSuggestionChars: 42,
@@ -64,7 +64,7 @@ test("variant store applies active variant overrides to effective config", async
 	assert.equal(effective.suggestion.customInstruction, "base");
 	assert.equal(effective.inference.suggesterModel, "openai/gpt-5");
 	assert.equal(effective.inference.suggesterThinking, "high");
-	assert.equal(effective.suggestion.strategy, "transcript-cache");
+	assert.equal(effective.suggestion.strategy, "transcript-steering");
 	assert.equal(effective.suggestion.maxSuggestionChars, 42);
 	assert.equal(effective.suggestion.maxRecentUserPrompts, 7);
 	assert.equal(effective.suggestion.maxRecentUserPromptChars, 180);

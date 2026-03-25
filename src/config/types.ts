@@ -1,6 +1,6 @@
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type InferenceDefault = "session-default";
-export type SuggestionStrategy = "compact" | "transcript-cache";
+export type SuggestionStrategy = "compact" | "transcript-steering";
 
 export interface SeedConfig {
 	maxDiffChars: number;

@@ -67,7 +67,7 @@ function isPositivePercentageInteger(value: unknown): value is number {
 }
 
 function isStrategy(value: unknown): value is SuggestionStrategy {
-	return value === "compact" || value === "transcript-cache";
+	return value === "compact" || value === "transcript-steering";
 }
 
 function normalizeVariant(value: unknown): SuggesterVariant {

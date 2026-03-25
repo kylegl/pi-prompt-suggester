@@ -58,7 +58,7 @@ export class TranscriptPromptContextBuilder {
 		const config = overrideConfig ?? this.config;
 		const transcript = this.transcriptProvider.getActiveTranscript();
 		if (!transcript) {
-			throw new Error("No active session transcript available for transcript-cache suggestion mode");
+			throw new Error("No active session transcript available for transcript-steering suggestion mode");
 		}
 		if (!transcript.systemPrompt.trim()) {
 			throw new Error("Active session transcript is missing a system prompt");

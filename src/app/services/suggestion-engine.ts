@@ -89,7 +89,7 @@ export class SuggestionEngine {
 		config: PromptSuggesterConfig,
 	): Promise<GeneratedSuggestion> {
 		const requestedStrategy = config.suggestion.strategy;
-		if (requestedStrategy === "transcript-cache" && this.deps.transcriptPromptContextBuilder) {
+		if (requestedStrategy === "transcript-steering" && this.deps.transcriptPromptContextBuilder) {
 			const sampledOut =
 				config.suggestion.transcriptRolloutPercent < 100 &&
 				stableSamplePercent(turn.turnId || turn.sourceLeafId) >= config.suggestion.transcriptRolloutPercent;
@@ -139,7 +139,7 @@ export class SuggestionEngine {
 					usage: result.usage,
 					metadata: {
 						requestedStrategy,
-						strategy: "transcript-cache",
+						strategy: "transcript-steering",
 						contextUsagePercent: transcriptContext.contextUsagePercent,
 						transcriptMessageCount: transcriptContext.transcriptMessageCount,
 						transcriptCharCount: transcriptContext.transcriptCharCount,

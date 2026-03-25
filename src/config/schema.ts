@@ -46,7 +46,7 @@ function isModelSetting(value: unknown): boolean {
 }
 
 function isSuggestionStrategy(value: unknown): boolean {
-	return ["compact", "transcript-cache"].includes(String(value));
+	return ["compact", "transcript-steering"].includes(String(value));
 }
 
 function isSchemaVersion(value: unknown): boolean {

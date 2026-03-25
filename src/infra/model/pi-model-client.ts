@@ -474,7 +474,7 @@ export class PiModelClient implements ModelClient {
 				context.systemPrompt,
 				settings,
 				context.sessionId,
-				{ suggestionMode: "transcript-cache", transcriptMessageCount: context.transcriptMessageCount },
+				{ suggestionMode: "transcript-steering", transcriptMessageCount: context.transcriptMessageCount },
 			);
 		}
 		return await this.completePrompt(
