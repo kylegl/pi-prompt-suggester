@@ -20,7 +20,6 @@ import { createUiContext } from "./infra/pi/ui-context.js";
 export default function suggester(pi: ExtensionAPI) {
 	let compositionPromise: Promise<AppComposition> | undefined;
 	let ghostEditorInstallState: { context: ExtensionContext; sessionFile: string | null } | undefined;
-	let ghostEditorBootReassertionKey: string | undefined;
 
 	function ensureGhostEditorInstalled(ctx: ExtensionContext, composition: AppComposition): void {
 		if (!ctx.hasUI) return;
@@ -39,26 +38,6 @@ export default function suggester(pi: ExtensionAPI) {
 			),
 		);
 		ghostEditorInstallState = { context: ctx, sessionFile };
-	}
-
-	function scheduleGhostEditorBootReassertion(ctx: ExtensionContext, composition: AppComposition): void {
-		if (!ctx.hasUI) return;
-		const sessionFile = ctx.sessionManager.getSessionFile() ?? null;
-		const reassertionKey = `${ctx.sessionManager.getSessionId()}:${sessionFile ?? "memory"}`;
-		if (ghostEditorBootReassertionKey === reassertionKey) return;
-		ghostEditorBootReassertionKey = reassertionKey;
-
-		const reassert = () => {
-			const active = composition.runtimeRef.getContext();
-			if (active !== ctx) return;
-			const activeSessionFile = active.sessionManager.getSessionFile() ?? null;
-			if (activeSessionFile !== sessionFile) return;
-			ghostEditorInstallState = undefined;
-			ensureGhostEditorInstalled(ctx, composition);
-		};
-
-		setTimeout(reassert, 0);
-		setTimeout(reassert, 50);
 	}
 
 	async function getComposition(): Promise<AppComposition> {
@@ -83,7 +62,6 @@ export default function suggester(pi: ExtensionAPI) {
 			const generationId = composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
 				ensureGhostEditorInstalled(ctx, composition);
-				scheduleGhostEditorBootReassertion(ctx, composition);
 				refreshSuggesterUi(
 					createUiContext({
 						runtimeRef: composition.runtimeRef,
