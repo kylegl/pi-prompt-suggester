@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
 import { formatTokens } from "./display.js";
@@ -47,30 +47,13 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 		(_tui, theme) => ({
 			invalidate() {},
 			render(width: number): string[] {
-				const lines: string[] = [];
 				const parts: string[] = [];
 				if (suggestionStatus) parts.push(theme.fg("accent", suggestionStatus));
 				if (logStatus) parts.push(formatPanelLog(ctx, logStatus));
 				const line = parts.join(" · ");
-				if (line) {
-					const truncated = truncateToWidth(line, Math.max(10, width), "", true);
-					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-					lines.push(truncated + pad);
-				}
-
-				const suggestionText = runtime.getSuggestion();
-				if (suggestionText) {
-					const previewPrefix = theme.fg("dim", "› ");
-					const wrapped = wrapTextWithAnsi(suggestionText, Math.max(10, width - 2));
-					for (const segment of wrapped.slice(0, 3)) {
-						const previewLine = `${previewPrefix}${segment}`;
-						const truncated = truncateToWidth(previewLine, Math.max(10, width), "", true);
-						const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-						lines.push(truncated + pad);
-					}
-				}
-
-				return lines.length > 0 ? lines : [" ".repeat(Math.max(1, width))];
+				const truncated = truncateToWidth(line, Math.max(10, width), "", true);
+				const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+				return [truncated + pad];
 			},
 		}),
 		{ placement: "belowEditor" },

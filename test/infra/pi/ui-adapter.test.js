@@ -144,9 +144,6 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 		getContext() {
 			return ctx;
 		},
-		getSuggestion() {
-			return "show the actual suggestion text";
-		},
 		getPanelSuggestionStatus() {
 			return "✦ prompt suggestion · Space accepts";
 		},
@@ -160,5 +157,6 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 	assert.equal(lastWidget?.key, "suggester-panel");
 	assert.equal(typeof lastWidget?.content, "function");
 	const rendered = lastWidget.content(null, createTheme()).render(80);
-	assert.equal(rendered.some((line) => line.includes("show the actual suggestion text")), true);
+	assert.equal(rendered.some((line) => line.includes("✦ prompt suggestion · Space accepts")), true);
+	assert.equal(rendered.some((line) => line.includes("show the actual suggestion text")), false);
 });
