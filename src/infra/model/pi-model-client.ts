@@ -505,7 +505,7 @@ export class PiModelClient implements ModelClient {
 		}
 
 		const model = this.resolveModelForCall(ctx.model, settings?.modelRef, ctx.modelRegistry.getAll());
-		const apiKey = await ctx.modelRegistry.getApiKey(model);
+		const { apiKey, headers } = await this.resolveRequestAuth(model, ctx.modelRegistry);
 		const messages = typeof messagesOrPrompt === "string"
 			? [{ role: "user", content: [{ type: "text", text: messagesOrPrompt }], timestamp: Date.now() } satisfies UserMessage]
 			: messagesOrPrompt;
@@ -519,6 +519,7 @@ export class PiModelClient implements ModelClient {
 			},
 			{
 				apiKey,
+				headers,
 				reasoning: settings?.thinkingLevel,
 				sessionId,
 				onPayload: async (payload) => {
@@ -543,6 +544,32 @@ export class PiModelClient implements ModelClient {
 				totalTokens: Number(response.usage?.totalTokens ?? 0),
 				costTotal: Number(response.usage?.cost?.total ?? 0),
 			},
+		};
+	}
+
+	private async resolveRequestAuth(
+		model: Model<any>,
+		modelRegistry: {
+			getApiKeyAndHeaders?: (model: Model<any>) => Promise<
+				| { ok: true; apiKey?: string; headers?: Record<string, string> }
+				| { ok: false; error: string }
+			>;
+			getApiKey?: (model: Model<any>) => Promise<string | undefined>;
+		},
+	): Promise<{ apiKey?: string; headers?: Record<string, string> }> {
+		if (typeof modelRegistry.getApiKeyAndHeaders === "function") {
+			const auth = await modelRegistry.getApiKeyAndHeaders(model);
+			if (!auth.ok) {
+				throw new Error(auth.error);
+			}
+			return {
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+			};
+		}
+
+		return {
+			apiKey: await modelRegistry.getApiKey?.(model),
 		};
 	}
 
