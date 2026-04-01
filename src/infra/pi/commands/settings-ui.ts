@@ -2,8 +2,9 @@ import { Container, SelectList, Text } from "@mariozechner/pi-tui";
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import type { AppComposition } from "../../../composition/root.js";
 import { SuggesterConfigPersistence } from "./config-persistence.js";
-import { getModelSelectionOptions, resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS, type ConfigScope, summarizeInstruction } from "./shared.js";
+import { resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS, type ConfigScope, summarizeInstruction } from "./shared.js";
 import { manageVariantsUi, runAbTestingUi, showAbStats } from "./ab-testing.js";
+import { showModelSelector } from "./model-selector.js";
 
 export async function handleSettingsUiCommand(
 	ctx: ExtensionCommandContext,
@@ -288,8 +289,11 @@ export async function handleSettingsUiCommand(
 	};
 
 	const promptModel = async (label: string, currentValue: string): Promise<string | undefined> => {
-		const options = await getModelSelectionOptions(ctx);
-		const selected = await ctx.ui.select(`${label} (current: ${currentValue})`, options);
+		const selected = await showModelSelector(ctx, {
+			title: `${label} (current: ${currentValue})`,
+			currentValue,
+			specialOptions: [{ value: SESSION_DEFAULT, description: "Use the current session model" }],
+		});
 		if (!selected) return undefined;
 		const resolved = resolveModelRef(ctx.modelRegistry.getAll(), selected);
 		if (!resolved.ok) {

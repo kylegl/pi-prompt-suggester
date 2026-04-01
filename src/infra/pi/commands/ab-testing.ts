@@ -9,7 +9,8 @@ import { PiSessionTranscriptProvider } from "../../pi/session-transcript-provide
 import { toInvocationThinkingLevel } from "../../../config/inference.js";
 import type { InferenceDefault, ThinkingLevel } from "../../../config/types.js";
 import type { AbWinner, SuggesterVariant } from "../suggester-variant-store.js";
-import { getModelSelectionOptions, resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS } from "./shared.js";
+import { resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS } from "./shared.js";
+import { showModelSelector } from "./model-selector.js";
 
 function summarizeVariant(variant: SuggesterVariant): string {
 	const parts: string[] = [];
@@ -47,8 +48,14 @@ async function promptVariantModel(
 	ctx: ExtensionCommandContext,
 	currentValue: string | undefined,
 ): Promise<string | undefined | null> {
-	const options = ["(inherit)", ...(await getModelSelectionOptions(ctx))];
-	const selected = await ctx.ui.select(`Suggester model (current: ${currentValue ?? "inherit"})`, options);
+	const selected = await showModelSelector(ctx, {
+		title: `Suggester model (current: ${currentValue ?? "inherit"})`,
+		currentValue,
+		specialOptions: [
+			{ value: "(inherit)", description: "Use the base suggester settings" },
+			{ value: SESSION_DEFAULT, description: "Use the current session model" },
+		],
+	});
 	if (!selected) return undefined;
 	if (selected === "(inherit)") return null;
 	const resolved = resolveModelRef(ctx.modelRegistry.getAll(), selected);

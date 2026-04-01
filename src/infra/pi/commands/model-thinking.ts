@@ -2,7 +2,8 @@ import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import type { AppComposition } from "../../../composition/root.js";
 import type { PromptSuggesterConfig, ThinkingLevel } from "../../../config/types.js";
 import { SuggesterConfigPersistence } from "./config-persistence.js";
-import { getModelSelectionOptions, parseRole, resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS } from "./shared.js";
+import { parseRole, resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS } from "./shared.js";
+import { showModelSelector } from "./model-selector.js";
 
 async function applyInferenceConfigChange(
 	ctx: ExtensionCommandContext,
@@ -55,10 +56,11 @@ export async function handleModelCommand(
 			ctx.ui.notify("Missing model reference.", "error");
 			return;
 		}
-		const selected = await ctx.ui.select(
-			`Select ${role} model`,
-			await getModelSelectionOptions(ctx),
-		);
+		const selected = await showModelSelector(ctx, {
+			title: `Select ${role} model`,
+			currentValue: composition.config.inference[key],
+			specialOptions: [{ value: SESSION_DEFAULT, description: "Use the current session model" }],
+		});
 		if (!selected) return;
 		rawModelRef = selected;
 	}
