@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+## 0.3.4 - 2026-04-01
+
+### Fixed
+- Fixed the suggester model picker UI so long model lists stay usable in small terminals and tmux panes by using a bounded searchable overlay instead of an unbounded selector.
+- Applied the improved scrollable model picker flow across `/suggester model`, suggester settings, and variant model configuration.
+
 ## 0.3.3 - 2026-03-31
 
 ### Fixed
