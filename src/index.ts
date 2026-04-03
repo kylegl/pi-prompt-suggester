@@ -79,6 +79,12 @@ export default function suggester(pi: ExtensionAPI) {
 		});
 	}
 
+	function syncSuggestionUi(ctx: ExtensionContext, composition: AppComposition): void {
+		if (!ctx.hasUI) return;
+		syncGhostEditorInstallation(ctx, composition);
+		refreshSuggesterUi(getUiContext(composition));
+	}
+
 	pi.registerShortcut("f2", {
 		description: "Accept prompt suggestion",
 		handler: async (ctx) => {
@@ -94,10 +100,7 @@ export default function suggester(pi: ExtensionAPI) {
 		onSessionStart: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			const generationId = composition.runtimeRef.bumpEpoch();
-			if (ctx.hasUI) {
-				syncGhostEditorInstallation(ctx, composition);
-				refreshSuggesterUi(getUiContext(composition));
-			}
+			syncSuggestionUi(ctx, composition);
 			await composition.orchestrators.sessionStart.handle();
 
 			const sourceLeafId = ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`;
@@ -124,18 +127,14 @@ export default function suggester(pi: ExtensionAPI) {
 		onAgentEnd: async (turn, ctx) => {
 			if (!turn) return;
 			const composition = await setRuntimeContext(ctx);
-			if (ctx.hasUI) {
-				syncGhostEditorInstallation(ctx, composition);
-			}
+			syncSuggestionUi(ctx, composition);
 			composition.runtimeRef.setLastTurnContext(turn);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.agentEnd.handle(turn, generationId);
 		},
 		onUserSubmit: async (event: InputEvent, ctx) => {
 			const composition = await setRuntimeContext(ctx);
-			if (ctx.hasUI) {
-				syncGhostEditorInstallation(ctx, composition);
-			}
+			syncSuggestionUi(ctx, composition);
 			composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.userSubmit.handle({
 				turnId: ctx.sessionManager.getLeafId() ?? `input-${Date.now()}`,
@@ -176,37 +175,37 @@ export default function suggester(pi: ExtensionAPI) {
 		onModelCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleModelCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onThinkingCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleThinkingCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onConfigCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleConfigCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onInstructionCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleInstructionCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onVariantCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleVariantCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onAbCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleAbCommand(args, ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onSettingsUiCommand: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleSettingsUiCommand(ctx, composition);
-			syncGhostEditorInstallation(ctx, composition);
+			syncSuggestionUi(ctx, composition);
 		},
 		onSeedTraceCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);

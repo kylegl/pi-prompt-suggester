@@ -197,6 +197,50 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
 });
 
+test("refreshSuggesterUi hides widget suggestion content after switching back to ghost mode", () => {
+	let lastWidget;
+	const ctx = {
+		hasUI: true,
+		ui: {
+			setStatus() {},
+			setWidget(key, content) {
+				lastWidget = { key, content };
+			},
+			theme: createTheme(),
+		},
+	};
+	const runtime = {
+		suggestionDisplayMode: "widget",
+		getContext() {
+			return ctx;
+		},
+		getSuggestion() {
+			return "hello world";
+		},
+		getPanelSuggestionStatus() {
+			return "prompt suggestion";
+		},
+		getPanelUsageStatus() {
+			return "suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)";
+		},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		showUsageInPanel: true,
+		showPanelStatus: true,
+	};
+
+	refreshSuggesterUi(runtime);
+	runtime.suggestionDisplayMode = "ghost";
+	refreshSuggesterUi(runtime);
+
+	const rendered = lastWidget.content(null, createTheme()).render(80);
+	assert.equal(rendered.some((line) => line.includes("hello world")), false);
+	assert.equal(rendered.some((line) => line.includes("prompt suggestion")), false);
+	assert.equal(rendered.some((line) => line.includes("F2 accepts")), false);
+	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
+});
+
 test("acceptWidgetSuggestion materializes the suggestion into the default editor", () => {
 	const runtime = {
 		suggestion: "hello world",
