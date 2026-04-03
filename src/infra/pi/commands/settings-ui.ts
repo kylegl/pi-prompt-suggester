@@ -5,6 +5,7 @@ import { SuggesterConfigPersistence } from "./config-persistence.js";
 import { resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS, type ConfigScope, summarizeInstruction } from "./shared.js";
 import { manageVariantsUi, runAbTestingUi, showAbStats } from "./ab-testing.js";
 import { showModelSelector } from "./model-selector.js";
+import { isSuggestionDisplayMode, usesGhostEditor } from "../suggestion-display-mode.js";
 
 export async function handleSettingsUiCommand(
 	ctx: ExtensionCommandContext,
@@ -19,6 +20,7 @@ export async function handleSettingsUiCommand(
 	let activeScope: ConfigScope = "project";
 	const thinkingOptions = [...THINKING_LEVELS, SESSION_DEFAULT];
 	const strategyOptions = ["compact", "transcript-steering"] as const;
+	const suggestionDisplayOptions = ["ghost", "widget"] as const;
 
 	const formatScopeName = (scope: ConfigScope): string => scope === "project" ? "Project override" : "User override";
 	const formatValue = (value: unknown): string => {
@@ -410,12 +412,12 @@ export async function handleSettingsUiCommand(
 				);
 				const selected = await ctx.ui.select(
 					`Show suggestions via which surface? (${formatScopeName(activeScope)}, current: ${currentValue})`,
-					["ghost", "widget"],
+					[...suggestionDisplayOptions],
 				);
-				if (!selected) continue;
+				if (!selected || !isSuggestionDisplayMode(selected)) continue;
 				await persistence.writeValue(activeScope, action, selected);
 				ctx.ui.notify(
-					selected === "ghost"
+					usesGhostEditor(selected)
 						? "Suggestions will use the inline ghost editor."
 						: "Suggestions will be shown in the widget, leaving the default editor untouched.",
 					"info",

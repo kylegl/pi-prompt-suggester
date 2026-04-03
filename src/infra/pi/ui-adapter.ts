@@ -3,6 +3,7 @@ import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/p
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
 import { formatTokens } from "./display.js";
+import { getSuggestionStatusText, usesGhostEditor, usesWidgetSuggestion } from "./suggestion-display-mode.js";
 import type { UiContextLike } from "./ui-context.js";
 
 function formatUsage(
@@ -36,17 +37,11 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 	ctx.ui.setStatus("suggester-events", undefined);
 	ctx.ui.setStatus("suggester-usage", undefined);
 
-	const suggestionText = runtime.suggestionDisplayMode === "widget" ? runtime.getSuggestion() : undefined;
-	const suggestionStatus = runtime.showPanelStatus && runtime.suggestionDisplayMode === "widget" ? runtime.getPanelSuggestionStatus() : undefined;
+	const widgetMode = usesWidgetSuggestion(runtime.suggestionDisplayMode);
+	const suggestionText = widgetMode ? runtime.getSuggestion() : undefined;
+	const suggestionStatus = runtime.showPanelStatus && widgetMode ? runtime.getPanelSuggestionStatus() : undefined;
 	const usageStatus = runtime.showUsageInPanel ? runtime.getPanelUsageStatus() : undefined;
 	const logStatus = runtime.getPanelLogStatus();
-	if (!suggestionText && !suggestionStatus && !logStatus) {
-		if (!usageStatus) {
-			ctx.ui.setWidget("suggester-panel", undefined);
-			return;
-		}
-	}
-
 	if (!suggestionText && !suggestionStatus && !logStatus && !usageStatus) {
 		ctx.ui.setWidget("suggester-panel", undefined);
 		return;
@@ -103,17 +98,18 @@ export class PiSuggestionSink implements SuggestionSink {
 		const trimmedEditorText = editorText.trim();
 		const isMultilineSuggestion = text.includes("\n");
 		const prefixCompatible = !editorText.includes("\n") && text.startsWith(editorText);
-		const canGhostInEditor = this.runtime.suggestionDisplayMode === "ghost" && (isMultilineSuggestion
+		const canGhostInEditor = usesGhostEditor(this.runtime.suggestionDisplayMode) && (isMultilineSuggestion
 			? trimmedEditorText.length === 0
 			: this.runtime.prefillOnlyWhenEditorEmpty
 				? trimmedEditorText.length === 0
 				: trimmedEditorText.length === 0 || prefixCompatible);
 
 		this.runtime.setSuggestion(text);
-
-		const statusLabel = options?.restore ? "restored prompt suggestion" : "prompt suggestion";
-		const statusHint = this.runtime.suggestionDisplayMode === "ghost" ? (canGhostInEditor ? " · Space accepts" : " · ghost hidden") : "";
-		this.runtime.setPanelSuggestionStatus(`${statusLabel}${statusHint}`);
+		this.runtime.setPanelSuggestionStatus(getSuggestionStatusText({
+			displayMode: this.runtime.suggestionDisplayMode,
+			restored: options?.restore,
+			canGhostInEditor,
+		}));
 		refreshSuggesterUi(this.runtime);
 	}
 

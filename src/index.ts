@@ -14,6 +14,7 @@ import {
 	handleAbCommand,
 	renderStatus,
 } from "./infra/pi/command-handlers.js";
+import { usesGhostEditor } from "./infra/pi/suggestion-display-mode.js";
 import { refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
 import { createUiContext } from "./infra/pi/ui-context.js";
 
@@ -24,7 +25,7 @@ export default function suggester(pi: ExtensionAPI) {
 	function syncGhostEditorInstallation(ctx: ExtensionContext, composition: AppComposition): void {
 		if (!ctx.hasUI) return;
 		const sessionFile = ctx.sessionManager.getSessionFile() ?? null;
-		const shouldUseGhostEditor = composition.config.suggestion.displayMode === "ghost";
+		const shouldUseGhostEditor = usesGhostEditor(composition.config.suggestion.displayMode);
 		const isInstalled = ghostEditorInstallState?.context === ctx && ghostEditorInstallState.sessionFile === sessionFile;
 
 		if (!shouldUseGhostEditor) {
