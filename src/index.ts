@@ -3,6 +3,7 @@ import { createAppComposition, type AppComposition } from "./composition/root.js
 import { buildLatestHistoricalTurnContext } from "./app/services/conversation-signals.js";
 import { PiExtensionAdapter } from "./infra/pi/extension-adapter.js";
 import { GhostSuggestionEditor } from "./infra/pi/ghost-suggestion-editor.js";
+import { getGhostEditorSyncAction, type GhostEditorInstallState } from "./infra/pi/ghost-editor-installation.js";
 import {
 	handleConfigCommand,
 	handleInstructionCommand,
@@ -14,29 +15,30 @@ import {
 	handleAbCommand,
 	renderStatus,
 } from "./infra/pi/command-handlers.js";
-import { usesGhostEditor } from "./infra/pi/suggestion-display-mode.js";
 import { refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
 import { createUiContext } from "./infra/pi/ui-context.js";
 
 export default function suggester(pi: ExtensionAPI) {
 	let compositionPromise: Promise<AppComposition> | undefined;
-	let ghostEditorInstallState: { context: ExtensionContext; sessionFile: string | null } | undefined;
+	let ghostEditorInstallState: GhostEditorInstallState | undefined;
 
 	function syncGhostEditorInstallation(ctx: ExtensionContext, composition: AppComposition): void {
 		if (!ctx.hasUI) return;
 		const sessionFile = ctx.sessionManager.getSessionFile() ?? null;
-		const shouldUseGhostEditor = usesGhostEditor(composition.config.suggestion.displayMode);
-		const isInstalled = ghostEditorInstallState?.context === ctx && ghostEditorInstallState.sessionFile === sessionFile;
-
-		if (!shouldUseGhostEditor) {
-			if (isInstalled) {
+		switch (getGhostEditorSyncAction({
+			state: ghostEditorInstallState,
+			displayMode: composition.config.suggestion.displayMode,
+			sessionFile,
+		})) {
+			case "noop":
+				return;
+			case "uninstall":
 				ctx.ui.setEditorComponent(undefined);
 				ghostEditorInstallState = undefined;
-			}
-			return;
+				return;
+			case "install":
+				break;
 		}
-
-		if (isInstalled) return;
 
 		ctx.ui.setEditorComponent((tui, theme, kb) =>
 			new GhostSuggestionEditor(
@@ -49,7 +51,7 @@ export default function suggester(pi: ExtensionAPI) {
 				(state) => composition.runtimeRef.setEditorHistoryState(state),
 			),
 		);
-		ghostEditorInstallState = { context: ctx, sessionFile };
+		ghostEditorInstallState = { sessionFile };
 	}
 
 	async function getComposition(): Promise<AppComposition> {
