@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
 import { formatTokens } from "./display.js";
@@ -36,17 +36,18 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 	ctx.ui.setStatus("suggester-events", undefined);
 	ctx.ui.setStatus("suggester-usage", undefined);
 
-	const suggestionStatus = runtime.showPanelStatus ? runtime.getPanelSuggestionStatus() : undefined;
+	const suggestionText = runtime.suggestionDisplayMode === "widget" ? runtime.getSuggestion() : undefined;
+	const suggestionStatus = runtime.showPanelStatus && runtime.suggestionDisplayMode === "widget" ? runtime.getPanelSuggestionStatus() : undefined;
 	const usageStatus = runtime.showUsageInPanel ? runtime.getPanelUsageStatus() : undefined;
 	const logStatus = runtime.getPanelLogStatus();
-	if (!suggestionStatus && !logStatus) {
+	if (!suggestionText && !suggestionStatus && !logStatus) {
 		if (!usageStatus) {
 			ctx.ui.setWidget("suggester-panel", undefined);
 			return;
 		}
 	}
 
-	if (!suggestionStatus && !logStatus && !usageStatus) {
+	if (!suggestionText && !suggestionStatus && !logStatus && !usageStatus) {
 		ctx.ui.setWidget("suggester-panel", undefined);
 		return;
 	}
@@ -57,6 +58,18 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 			invalidate() {},
 			render(width: number): string[] {
 				const lines: string[] = [];
+				if (suggestionText) {
+					const sourceLines = suggestionText.split("\n");
+					for (let index = 0; index < sourceLines.length; index += 1) {
+						const prefix = index === 0 ? "✦ " : "  ";
+						const wrapped = wrapTextWithAnsi(theme.fg("accent", `${prefix}${sourceLines[index] ?? ""}`), Math.max(10, width));
+						for (const wrappedLine of wrapped.length > 0 ? wrapped : [theme.fg("accent", prefix.trimEnd())]) {
+							const truncated = truncateToWidth(wrappedLine, Math.max(10, width), "", true);
+							const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+							lines.push(truncated + pad);
+						}
+					}
+				}
 				const parts: string[] = [];
 				if (suggestionStatus) parts.push(theme.fg("accent", suggestionStatus));
 				if (logStatus) parts.push(formatPanelLog(ctx, logStatus));
@@ -90,16 +103,16 @@ export class PiSuggestionSink implements SuggestionSink {
 		const trimmedEditorText = editorText.trim();
 		const isMultilineSuggestion = text.includes("\n");
 		const prefixCompatible = !editorText.includes("\n") && text.startsWith(editorText);
-		const canGhostInEditor = isMultilineSuggestion
+		const canGhostInEditor = this.runtime.suggestionDisplayMode === "ghost" && (isMultilineSuggestion
 			? trimmedEditorText.length === 0
 			: this.runtime.prefillOnlyWhenEditorEmpty
 				? trimmedEditorText.length === 0
-				: trimmedEditorText.length === 0 || prefixCompatible;
+				: trimmedEditorText.length === 0 || prefixCompatible);
 
 		this.runtime.setSuggestion(text);
 
-		const statusLabel = options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion";
-		const statusHint = canGhostInEditor ? " · Space accepts" : " · ghost hidden";
+		const statusLabel = options?.restore ? "restored prompt suggestion" : "prompt suggestion";
+		const statusHint = this.runtime.suggestionDisplayMode === "ghost" ? (canGhostInEditor ? " · Space accepts" : " · ghost hidden") : "";
 		this.runtime.setPanelSuggestionStatus(`${statusLabel}${statusHint}`);
 		refreshSuggesterUi(this.runtime);
 	}

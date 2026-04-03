@@ -21,10 +21,21 @@ export default function suggester(pi: ExtensionAPI) {
 	let compositionPromise: Promise<AppComposition> | undefined;
 	let ghostEditorInstallState: { context: ExtensionContext; sessionFile: string | null } | undefined;
 
-	function ensureGhostEditorInstalled(ctx: ExtensionContext, composition: AppComposition): void {
+	function syncGhostEditorInstallation(ctx: ExtensionContext, composition: AppComposition): void {
 		if (!ctx.hasUI) return;
 		const sessionFile = ctx.sessionManager.getSessionFile() ?? null;
-		if (ghostEditorInstallState?.context === ctx && ghostEditorInstallState.sessionFile === sessionFile) return;
+		const shouldUseGhostEditor = composition.config.suggestion.displayMode === "ghost";
+		const isInstalled = ghostEditorInstallState?.context === ctx && ghostEditorInstallState.sessionFile === sessionFile;
+
+		if (!shouldUseGhostEditor) {
+			if (isInstalled) {
+				ctx.ui.setEditorComponent(undefined);
+				ghostEditorInstallState = undefined;
+			}
+			return;
+		}
+
+		if (isInstalled) return;
 
 		ctx.ui.setEditorComponent((tui, theme, kb) =>
 			new GhostSuggestionEditor(
@@ -61,7 +72,7 @@ export default function suggester(pi: ExtensionAPI) {
 			const composition = await setRuntimeContext(ctx);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
-				ensureGhostEditorInstalled(ctx, composition);
+				syncGhostEditorInstallation(ctx, composition);
 				refreshSuggesterUi(
 					createUiContext({
 						runtimeRef: composition.runtimeRef,
@@ -98,7 +109,7 @@ export default function suggester(pi: ExtensionAPI) {
 			if (!turn) return;
 			const composition = await setRuntimeContext(ctx);
 			if (ctx.hasUI) {
-				ensureGhostEditorInstalled(ctx, composition);
+				syncGhostEditorInstallation(ctx, composition);
 			}
 			composition.runtimeRef.setLastTurnContext(turn);
 			const generationId = composition.runtimeRef.bumpEpoch();
@@ -107,7 +118,7 @@ export default function suggester(pi: ExtensionAPI) {
 		onUserSubmit: async (event: InputEvent, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			if (ctx.hasUI) {
-				ensureGhostEditorInstalled(ctx, composition);
+				syncGhostEditorInstallation(ctx, composition);
 			}
 			composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.userSubmit.handle({
@@ -149,30 +160,37 @@ export default function suggester(pi: ExtensionAPI) {
 		onModelCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleModelCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onThinkingCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleThinkingCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onConfigCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleConfigCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onInstructionCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleInstructionCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onVariantCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleVariantCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onAbCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleAbCommand(args, ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onSettingsUiCommand: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleSettingsUiCommand(ctx, composition);
+			syncGhostEditorInstallation(ctx, composition);
 		},
 		onSeedTraceCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);

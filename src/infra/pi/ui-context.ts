@@ -21,6 +21,7 @@ export interface UiContextLike {
 	getPanelLogStatus(): WidgetLogStatus | undefined;
 	setPanelLogStatus(status: WidgetLogStatus | undefined): void;
 	getSuggesterModelDisplay(): string | undefined;
+	suggestionDisplayMode: PromptSuggesterConfig["suggestion"]["displayMode"];
 	prefillOnlyWhenEditorEmpty: boolean;
 	showUsageInPanel: boolean;
 	showPanelStatus: boolean;
@@ -53,8 +54,17 @@ export function createUiContext(params: {
 				getSessionThinkingLevel,
 			});
 		},
-		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
-		showUsageInPanel: config.suggestion.showUsageInPanel,
-		showPanelStatus: config.suggestion.showPanelStatus,
+		get suggestionDisplayMode() {
+			return config.suggestion.displayMode;
+		},
+		get prefillOnlyWhenEditorEmpty() {
+			return config.suggestion.prefillOnlyWhenEditorEmpty;
+		},
+		get showUsageInPanel() {
+			return config.suggestion.showUsageInPanel;
+		},
+		get showPanelStatus() {
+			return config.suggestion.showPanelStatus;
+		},
 	};
 }

@@ -63,6 +63,7 @@ test("PiSuggestionSink keeps ghost suggestions even before idle flips", async ()
 		getSuggesterModelDisplay() {
 			return undefined;
 		},
+		suggestionDisplayMode: "ghost",
 		prefillOnlyWhenEditorEmpty: true,
 		showUsageInPanel: true,
 		showPanelStatus: true,
@@ -128,6 +129,7 @@ test("PiSuggestionSink retains suggestions even when the editor text is temporar
 		getSuggesterModelDisplay() {
 			return undefined;
 		},
+		suggestionDisplayMode: "ghost",
 		prefillOnlyWhenEditorEmpty: true,
 		showUsageInPanel: true,
 		showPanelStatus: true,
@@ -162,8 +164,11 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 		getContext() {
 			return ctx;
 		},
+		getSuggestion() {
+			return "hello world";
+		},
 		getPanelSuggestionStatus() {
-			return "✦ prompt suggestion · Space accepts";
+			return "prompt suggestion";
 		},
 		getPanelUsageStatus() {
 			return "suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)";
@@ -171,6 +176,7 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 		getPanelLogStatus() {
 			return undefined;
 		},
+		suggestionDisplayMode: "widget",
 		showUsageInPanel: true,
 		showPanelStatus: true,
 	};
@@ -180,7 +186,8 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 	assert.equal(lastWidget?.key, "suggester-panel");
 	assert.equal(typeof lastWidget?.content, "function");
 	const rendered = lastWidget.content(null, createTheme()).render(80);
-	assert.equal(rendered.some((line) => line.includes("✦ prompt suggestion · Space accepts")), true);
+	assert.equal(rendered.some((line) => line.includes("hello world")), true);
+	assert.equal(rendered.some((line) => line.includes("prompt suggestion")), true);
 	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
 });
 
@@ -225,6 +232,7 @@ test("PiSuggestionSink writes usage into the panel instead of the footer status 
 		getSuggesterModelDisplay() {
 			return "(openai) gpt-5 • high";
 		},
+		suggestionDisplayMode: "ghost",
 		prefillOnlyWhenEditorEmpty: true,
 		showUsageInPanel: true,
 		showPanelStatus: true,
@@ -256,6 +264,9 @@ test("refreshSuggesterUi shows orphan usage when usage display is enabled", () =
 		getContext() {
 			return ctx;
 		},
+		getSuggestion() {
+			return undefined;
+		},
 		getPanelSuggestionStatus() {
 			return undefined;
 		},
@@ -265,6 +276,7 @@ test("refreshSuggesterUi shows orphan usage when usage display is enabled", () =
 		getPanelLogStatus() {
 			return undefined;
 		},
+		suggestionDisplayMode: "ghost",
 		showUsageInPanel: true,
 		showPanelStatus: true,
 	};
@@ -275,6 +287,65 @@ test("refreshSuggesterUi shows orphan usage when usage display is enabled", () =
 	assert.equal(typeof lastWidget?.content, "function");
 	const rendered = lastWidget.content(null, createTheme()).render(80);
 	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
+});
+
+test("PiSuggestionSink shows widget suggestions when widget mode is enabled", async () => {
+	const runtime = {
+		epoch: 1,
+		suggestion: undefined,
+		panelSuggestionStatus: undefined,
+		panelUsageStatus: undefined,
+		getContext() {
+			return {
+				hasUI: true,
+				ui: {
+					getEditorText() {
+						return "";
+					},
+					setWidget() {},
+					setStatus() {},
+					theme: createTheme(),
+				},
+			};
+		},
+		getEpoch() {
+			return this.epoch;
+		},
+		getSuggestion() {
+			return this.suggestion;
+		},
+		setSuggestion(text) {
+			this.suggestion = text;
+		},
+		getPanelSuggestionStatus() {
+			return this.panelSuggestionStatus;
+		},
+		setPanelSuggestionStatus(text) {
+			this.panelSuggestionStatus = text;
+		},
+		getPanelUsageStatus() {
+			return this.panelUsageStatus;
+		},
+		setPanelUsageStatus(text) {
+			this.panelUsageStatus = text;
+		},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		setPanelLogStatus() {},
+		getSuggesterModelDisplay() {
+			return undefined;
+		},
+		suggestionDisplayMode: "widget",
+		prefillOnlyWhenEditorEmpty: true,
+		showUsageInPanel: true,
+		showPanelStatus: true,
+	};
+
+	const sink = new PiSuggestionSink(runtime);
+	await sink.showSuggestion("hello world", { generationId: 1 });
+
+	assert.equal(runtime.panelSuggestionStatus, "prompt suggestion");
 });
 
 test("refreshSuggesterUi hides orphan usage when usage display is disabled", () => {
@@ -293,6 +364,9 @@ test("refreshSuggesterUi hides orphan usage when usage display is disabled", () 
 		getContext() {
 			return ctx;
 		},
+		getSuggestion() {
+			return undefined;
+		},
 		getPanelSuggestionStatus() {
 			return undefined;
 		},
@@ -302,6 +376,7 @@ test("refreshSuggesterUi hides orphan usage when usage display is disabled", () 
 		getPanelLogStatus() {
 			return undefined;
 		},
+		suggestionDisplayMode: "ghost",
 		showUsageInPanel: false,
 		showPanelStatus: true,
 	};

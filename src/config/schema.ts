@@ -49,6 +49,10 @@ function isSuggestionStrategy(value: unknown): boolean {
 	return ["compact", "transcript-steering"].includes(String(value));
 }
 
+function isSuggestionDisplayMode(value: unknown): boolean {
+	return ["ghost", "widget"].includes(String(value));
+}
+
 function isSchemaVersion(value: unknown): boolean {
 	return typeof value === "number" && Number.isInteger(value) && value === CURRENT_CONFIG_SCHEMA_VERSION;
 }
@@ -89,6 +93,7 @@ const suggestionValidators: ValidatorMap<SuggestionConfig> = {
 	noSuggestionToken: (value) => typeof value === "string",
 	customInstruction: (value) => typeof value === "string",
 	fastPathContinueOnError: isBoolean,
+	displayMode: isSuggestionDisplayMode,
 	maxAssistantTurnChars: isPositiveInteger,
 	maxRecentUserPrompts: isPositiveInteger,
 	maxRecentUserPromptChars: isPositiveInteger,
@@ -111,6 +116,7 @@ const suggestionShape: SuggestionConfig = {
 	noSuggestionToken: "",
 	customInstruction: "",
 	fastPathContinueOnError: true,
+	displayMode: "ghost",
 	maxAssistantTurnChars: 1,
 	maxRecentUserPrompts: 1,
 	maxRecentUserPromptChars: 1,

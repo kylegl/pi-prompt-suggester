@@ -12,6 +12,7 @@ function createConfig() {
 			noSuggestionToken: "[no suggestion]",
 			customInstruction: "",
 			fastPathContinueOnError: true,
+			displayMode: "ghost",
 			maxAssistantTurnChars: 100000,
 			maxRecentUserPrompts: 20,
 			maxRecentUserPromptChars: 500,

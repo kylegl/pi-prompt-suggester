@@ -137,6 +137,14 @@ export async function handleSettingsUiCommand(
 				description: await describeScopedValue("steering.maxChangedExamples", composition.config.steering.maxChangedExamples),
 			},
 			{
+				value: "suggestion.displayMode",
+				label: "Suggestion display",
+				description: await describeScopedValue(
+					"suggestion.displayMode",
+					composition.config.suggestion.displayMode,
+				),
+			},
+			{
 				value: "suggestion.prefillOnlyWhenEditorEmpty",
 				label: "Ghost only on empty editor",
 				description: await describeScopedValue(
@@ -392,6 +400,26 @@ export async function handleSettingsUiCommand(
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected === "true");
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
+				continue;
+			}
+
+			if (action === "suggestion.displayMode") {
+				const currentValue = await getScopedEditorValue(
+					"suggestion.displayMode",
+					composition.config.suggestion.displayMode,
+				);
+				const selected = await ctx.ui.select(
+					`Show suggestions via which surface? (${formatScopeName(activeScope)}, current: ${currentValue})`,
+					["ghost", "widget"],
+				);
+				if (!selected) continue;
+				await persistence.writeValue(activeScope, action, selected);
+				ctx.ui.notify(
+					selected === "ghost"
+						? "Suggestions will use the inline ghost editor."
+						: "Suggestions will be shown in the widget, leaving the default editor untouched.",
+					"info",
+				);
 				continue;
 			}
 
