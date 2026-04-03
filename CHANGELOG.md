@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+## 0.3.5 - 2026-04-03
+
+### Added
+- Added widget-mode suggestion acceptance via `F2`, including an inline widget hint so users can discover how to apply a suggestion without the ghost editor.
+
+### Fixed
+- Fixed the extension-interference issue by adding a switchable suggestion display mode so users can move suggestions from the ghost editor into the widget when another extension needs to own the editor.
+- Fixed display-mode switching so the ghost editor is correctly removed after switching to widget mode and stale widget suggestion content disappears again after switching back to ghost mode.
+
 ## 0.3.4 - 2026-04-01
 
 ### Fixed
