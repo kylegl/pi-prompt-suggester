@@ -235,3 +235,35 @@ test("SuggestionEngine falls back to compact mode when transcript rollout sample
 	assert.equal(result.metadata.fallbackReason, "transcript_rollout_skip");
 	assert.equal(calls.length, 1);
 });
+
+test("SuggestionEngine treats empty model output as no_suggestion", async () => {
+	const engine = new SuggestionEngine({
+		config: createConfig(),
+		modelClient: {
+			async generateSuggestion() {
+				return { text: "   ", usage: undefined };
+			},
+		},
+		promptContextBuilder: {
+			build() {
+				return {
+					latestAssistantTurn: "compact",
+					turnStatus: "success",
+					intentSeed: null,
+					recentUserPrompts: [],
+					toolSignals: [],
+					touchedFiles: [],
+					unresolvedQuestions: [],
+					recentChanged: [],
+					customInstruction: "",
+					noSuggestionToken: "[no suggestion]",
+					maxSuggestionChars: 200,
+				};
+			},
+		},
+	});
+
+	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	assert.equal(result.kind, "no_suggestion");
+	assert.equal(result.text, "[no suggestion]");
+});

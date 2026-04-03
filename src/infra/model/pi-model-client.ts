@@ -28,6 +28,10 @@ export interface RuntimeContextProvider {
 	getContext(): ExtensionContext | undefined;
 }
 
+interface CompletePromptOptions {
+	allowEmptyText?: boolean;
+}
+
 type SeederToolName = "ls" | "find" | "grep" | "read";
 
 type SeederModelResponse =
@@ -475,6 +479,7 @@ export class PiModelClient implements ModelClient {
 				settings,
 				context.sessionId,
 				{ suggestionMode: "transcript-steering", transcriptMessageCount: context.transcriptMessageCount },
+				{ allowEmptyText: true },
 			);
 		}
 		return await this.completePrompt(
@@ -489,6 +494,7 @@ export class PiModelClient implements ModelClient {
 			settings,
 			undefined,
 			{ suggestionMode: "compact" },
+			{ allowEmptyText: true },
 		);
 	}
 
@@ -498,6 +504,7 @@ export class PiModelClient implements ModelClient {
 		settings?: ModelInvocationSettings,
 		sessionId?: string,
 		debugMeta?: Record<string, unknown>,
+		options?: CompletePromptOptions,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {
@@ -533,7 +540,7 @@ export class PiModelClient implements ModelClient {
 			},
 		);
 		const text = extractText(response.content);
-		if (!text) throw new Error("Model returned empty text");
+		if (!text && !options?.allowEmptyText) throw new Error("Model returned empty text");
 		return {
 			text,
 			usage: {
