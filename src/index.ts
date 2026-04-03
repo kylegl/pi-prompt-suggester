@@ -15,8 +15,8 @@ import {
 	handleAbCommand,
 	renderStatus,
 } from "./infra/pi/command-handlers.js";
-import { refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
-import { createUiContext } from "./infra/pi/ui-context.js";
+import { acceptWidgetSuggestion, refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
+import { createUiContext, type UiContextLike } from "./infra/pi/ui-context.js";
 
 export default function suggester(pi: ExtensionAPI) {
 	let compositionPromise: Promise<AppComposition> | undefined;
@@ -70,20 +70,33 @@ export default function suggester(pi: ExtensionAPI) {
 		return composition;
 	}
 
+	function getUiContext(composition: AppComposition): UiContextLike {
+		return createUiContext({
+			runtimeRef: composition.runtimeRef,
+			config: composition.config,
+			variantStore: composition.stores.variantStore,
+			getSessionThinkingLevel: () => pi.getThinkingLevel(),
+		});
+	}
+
+	pi.registerShortcut("f2", {
+		description: "Accept prompt suggestion",
+		handler: async (ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			const result = acceptWidgetSuggestion(getUiContext(composition));
+			if (result === "mismatch") {
+				ctx.ui.notify("Current editor text no longer matches the suggestion.", "warning");
+			}
+		},
+	});
+
 	const adapter = new PiExtensionAdapter(pi, {
 		onSessionStart: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
 				syncGhostEditorInstallation(ctx, composition);
-				refreshSuggesterUi(
-					createUiContext({
-						runtimeRef: composition.runtimeRef,
-						config: composition.config,
-						variantStore: composition.stores.variantStore,
-						getSessionThinkingLevel: () => pi.getThinkingLevel(),
-					}),
-				);
+				refreshSuggesterUi(getUiContext(composition));
 			}
 			await composition.orchestrators.sessionStart.handle();
 

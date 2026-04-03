@@ -6,6 +6,8 @@ import { formatTokens } from "./display.js";
 import { getSuggestionStatusText, usesGhostEditor, usesWidgetSuggestion } from "./suggestion-display-mode.js";
 import type { UiContextLike } from "./ui-context.js";
 
+export const WIDGET_ACCEPT_SHORTCUT_LABEL = "F2 accepts";
+
 function formatUsage(
 	usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats },
 	suggesterModelDisplay: string | undefined,
@@ -40,6 +42,7 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 	const widgetMode = usesWidgetSuggestion(runtime.suggestionDisplayMode);
 	const suggestionText = widgetMode ? runtime.getSuggestion() : undefined;
 	const suggestionStatus = runtime.showPanelStatus && widgetMode ? runtime.getPanelSuggestionStatus() : undefined;
+	const suggestionHint = suggestionText ? themeHintText(widgetMode) : undefined;
 	const usageStatus = runtime.showUsageInPanel ? runtime.getPanelUsageStatus() : undefined;
 	const logStatus = runtime.getPanelLogStatus();
 	if (!suggestionText && !suggestionStatus && !logStatus && !usageStatus) {
@@ -67,6 +70,7 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 				}
 				const parts: string[] = [];
 				if (suggestionStatus) parts.push(theme.fg("accent", suggestionStatus));
+				if (suggestionHint) parts.push(theme.fg("muted", suggestionHint));
 				if (logStatus) parts.push(formatPanelLog(ctx, logStatus));
 				const line = parts.join(" · ");
 				if (line) {
@@ -84,6 +88,24 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 		}),
 		{ placement: "belowEditor" },
 	);
+}
+
+function themeHintText(widgetMode: boolean): string | undefined {
+	return widgetMode ? WIDGET_ACCEPT_SHORTCUT_LABEL : undefined;
+}
+
+export function acceptWidgetSuggestion(runtime: UiContextLike): "accepted" | "missing-suggestion" | "mismatch" | "unavailable" {
+	const ctx = runtime.getContext();
+	if (!ctx?.hasUI || !usesWidgetSuggestion(runtime.suggestionDisplayMode)) return "unavailable";
+	const suggestion = runtime.getSuggestion();
+	if (!suggestion) return "missing-suggestion";
+	const editorText = ctx.ui.getEditorText();
+	if (editorText.length > 0 && !suggestion.startsWith(editorText)) return "mismatch";
+	ctx.ui.setEditorText(suggestion);
+	runtime.setSuggestion(undefined);
+	runtime.setPanelSuggestionStatus(undefined);
+	refreshSuggesterUi(runtime);
+	return "accepted";
 }
 
 export class PiSuggestionSink implements SuggestionSink {

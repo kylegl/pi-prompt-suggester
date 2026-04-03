@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PiSuggestionSink, refreshSuggesterUi } from "../../../dist/infra/pi/ui-adapter.js";
+import {
+	acceptWidgetSuggestion,
+	PiSuggestionSink,
+	refreshSuggesterUi,
+	WIDGET_ACCEPT_SHORTCUT_LABEL,
+} from "../../../dist/infra/pi/ui-adapter.js";
 
 function createTheme() {
 	return {
@@ -188,7 +193,112 @@ test("refreshSuggesterUi still renders the panel when a suggestion exists", () =
 	const rendered = lastWidget.content(null, createTheme()).render(80);
 	assert.equal(rendered.some((line) => line.includes("hello world")), true);
 	assert.equal(rendered.some((line) => line.includes("prompt suggestion")), true);
+	assert.equal(rendered.some((line) => line.includes(WIDGET_ACCEPT_SHORTCUT_LABEL)), true);
 	assert.equal(rendered.some((line) => line.includes("suggester usage: ↑10 ↓5 R2 $0.001 (1 sugg, 0 seed)")), true);
+});
+
+test("acceptWidgetSuggestion materializes the suggestion into the default editor", () => {
+	const runtime = {
+		suggestion: "hello world",
+		panelSuggestionStatus: "prompt suggestion",
+		editorText: "hello",
+		getContext() {
+			return {
+				hasUI: true,
+				ui: {
+					getEditorText: () => this.editorText,
+					setEditorText: (text) => {
+						this.editorText = text;
+					},
+					setStatus() {},
+					setWidget() {},
+					theme: createTheme(),
+				},
+			};
+		},
+		getSuggestion() {
+			return this.suggestion;
+		},
+		setSuggestion(text) {
+			this.suggestion = text;
+		},
+		getPanelSuggestionStatus() {
+			return this.panelSuggestionStatus;
+		},
+		setPanelSuggestionStatus(text) {
+			this.panelSuggestionStatus = text;
+		},
+		getPanelUsageStatus() {
+			return undefined;
+		},
+		setPanelUsageStatus() {},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		setPanelLogStatus() {},
+		getSuggesterModelDisplay() {
+			return undefined;
+		},
+		suggestionDisplayMode: "widget",
+		showUsageInPanel: true,
+		showPanelStatus: true,
+		prefillOnlyWhenEditorEmpty: true,
+	};
+
+	assert.equal(acceptWidgetSuggestion(runtime), "accepted");
+	assert.equal(runtime.editorText, "hello world");
+	assert.equal(runtime.suggestion, undefined);
+	assert.equal(runtime.panelSuggestionStatus, undefined);
+});
+
+test("acceptWidgetSuggestion refuses to overwrite diverged editor text", () => {
+	const runtime = {
+		suggestion: "hello world",
+		editorText: "different prompt",
+		getContext() {
+			return {
+				hasUI: true,
+				ui: {
+					getEditorText: () => this.editorText,
+					setEditorText: (text) => {
+						this.editorText = text;
+					},
+					setStatus() {},
+					setWidget() {},
+					theme: createTheme(),
+				},
+			};
+		},
+		getSuggestion() {
+			return this.suggestion;
+		},
+		setSuggestion(text) {
+			this.suggestion = text;
+		},
+		getPanelSuggestionStatus() {
+			return undefined;
+		},
+		setPanelSuggestionStatus() {},
+		getPanelUsageStatus() {
+			return undefined;
+		},
+		setPanelUsageStatus() {},
+		getPanelLogStatus() {
+			return undefined;
+		},
+		setPanelLogStatus() {},
+		getSuggesterModelDisplay() {
+			return undefined;
+		},
+		suggestionDisplayMode: "widget",
+		showUsageInPanel: true,
+		showPanelStatus: true,
+		prefillOnlyWhenEditorEmpty: true,
+	};
+
+	assert.equal(acceptWidgetSuggestion(runtime), "mismatch");
+	assert.equal(runtime.editorText, "different prompt");
+	assert.equal(runtime.suggestion, "hello world");
 });
 
 test("PiSuggestionSink writes usage into the panel instead of the footer status line", async () => {
