@@ -530,10 +530,11 @@ export class PiModelClient implements ModelClient {
 				reasoning: settings?.thinkingLevel,
 				sessionId,
 				onPayload: async (payload) => {
+					const serialized = JSON.stringify(payload);
 					this.logger?.debug("suggestion.provider.payload", {
 						...debugMeta,
 						sessionId,
-						payloadPreview: preview(JSON.stringify(payload), 1000),
+						payloadBytes: Buffer.byteLength(serialized, "utf8"),
 					});
 					return undefined;
 				},
